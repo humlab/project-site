@@ -1,0 +1,81 @@
+#main-grid-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto;
+    column-gap: 5vw;
+    row-gap: 5vw;
+    justify-items: center;
+}
+
+.project-grid-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 0 10vw 1vw #ccc;
+    width: 20vw;
+    height: 20vw;
+    padding: 2vw;
+}
+
+.project-grid-tile:hover {
+    box-shadow: 0 0 10vw 1vw #ddf;
+    cursor: pointer;
+}
+
+.project-header-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    height: 30%;
+    padding:0;
+    margin:0;
+}
+
+.project-body-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    height: 70%;
+    padding:0;
+    margin:0;
+}
+
+.project-logo {
+    width: 100%;
+    height: 80%;
+    object-fit: contain;
+}
+
+img#sead-screenshot {
+    width: 100%;
+    object-fit: contain;
+}
+
+.year-ribbon {
+    position:absolute;
+    top: calc(1vw + 1px);
+    right: calc(-2vw + 1px);
+    width: 8vw;
+    height: 2vw;
+    background: rgb(24, 24, 122);
+    clip-path: polygon(25% 0, 75% 0%, 100% 100%, 0% 100%);
+    transform: rotate(45deg);
+    color: #fff;
+    display:flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Prompt', sans-serif;
+    font-weight: bold;
+    font-size: 1.2vw;
+}
+
+.year-ribbon-archived {
+    background: rgb(122, 24, 24);
+}
+
+.screenshot {
+    width: 100%;
+    object-fit: contain;
+}

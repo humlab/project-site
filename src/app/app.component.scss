@@ -1,0 +1,27 @@
+
+h1 {
+    font-size: 4em;
+}
+
+#header hr {
+    height: 1px;
+    width: auto;
+    background: #ccc;
+}
+
+#baseplate {
+    padding-left: 5vw;
+    padding-right: 5vw;
+}
+
+#tilescape-button {
+    position: relative;
+    top: 1em;
+    left: -1em;
+}
+
+#tilescape-button ion-icon {
+    font-size: 4em;
+    color: #333;
+    
+}
