@@ -1,10 +1,24 @@
 /* You can add global styles to this file, and also import other style files */
 @import url('https://fonts.googleapis.com/css2?family=Fugaz+One&family=Italianno&family=Prompt:ital,wght@0,100;1,300&display=swap');
 
+
+@font-face {
+    font-family: 'Harlow Solid';
+    src: url('assets/HarlowSolidPlain.eot');
+    src: url('assets/HarlowSolidPlain.eot?#iefix') format('embedded-opentype'),
+        url('assets/HarlowSolidPlain.woff2') format('woff2'),
+        url('assets/HarlowSolidPlain.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+
 h1 {
-    font-family: 'Italianno', cursive;
+    font-family: 'Harlow Solid', 'Italianno', cursive;
     font-size: 4em;
     margin:0;
+    color: #555;
 }
 
 h2 {
@@ -15,6 +29,7 @@ h2 {
 h3 {
     font-family: 'Prompt', sans-serif;
 }
+
 
 #main-grid-container > a {
     text-decoration: none;
@@ -38,12 +53,14 @@ h3 {
 }
 
 .desc-text {
-    padding-left: 4em;
-    padding-right: 4em;
+    margin-left: 4em;
+    margin-right: 4em;
+    padding-left: 0.5em;
     font-size: 1.2em;
     font-family: 'Prompt', sans-serif;
     font-weight: bold;
     max-width: 30em;
+    border-left: 3px red solid;
 }
 
 .explore-button {
@@ -52,7 +69,8 @@ h3 {
     margin-top: 2em;
     padding: 0.5em;
     background: rgb(255, 123, 0);
-    box-shadow: 0 0 4vw 0vw rgba(0, 0, 0, 0.3);
+    //box-shadow: 0 0 4vw 0vw rgba(0, 0, 0, 0.3)
+    box-shadow: 0 0 1.5em 0.5em rgba(0, 0, 0, 0.1);
     font-size: 2em;
     font-family: 'Fugaz One', cursive;
     color: #fff;
@@ -62,6 +80,7 @@ h3 {
 .explore-button:hover {
     cursor:pointer;
     background: lighten(rgb(255, 123, 0), 10%);
+    box-shadow: 0 0 10% 5% rgba(0, 0, 100, 0.15);
 }
 
 .screenshot-image {
@@ -130,4 +149,5 @@ h3 {
 
 .sub-header {
     margin-bottom: 2em;
+    font-weight: bold;
 }

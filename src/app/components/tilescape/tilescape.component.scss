@@ -13,14 +13,14 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 0 10vw 1vw #ccc;
+    box-shadow: 0 0 3vw 1vw rgba(0, 0, 0, 0.1);
     width: 20vw;
     height: 20vw;
     padding: 2vw;
 }
 
 .project-grid-tile:hover {
-    box-shadow: 0 0 10vw 1vw #ddf;
+    box-shadow: 0 0 3vw 1vw rgba(0, 0, 100, 0.15);
     cursor: pointer;
 }
 
@@ -55,8 +55,8 @@ img#sead-screenshot {
 
 .year-ribbon {
     position:absolute;
-    top: calc(1vw + 1px);
-    right: calc(-2vw + 1px);
+    top: calc(1.11vw);
+    right: calc(-1.9vw);
     width: 8vw;
     height: 2vw;
     background: rgb(24, 24, 122);
