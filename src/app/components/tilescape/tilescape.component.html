@@ -4,33 +4,54 @@
         
         <a href="/sead">
             <div class="project-grid-tile">
-                <div class="project-header-container">
-                <img class="project-logo" src="assets/SEAD-logo-with-subtext.png" />
+                <div class="project-header-container colspan">
+                    <img class="project-logo" src="assets/SEAD-logo-with-subtext.png" />
                 </div>
-                <div class="project-body-container">
-                <img id="sead-screenshot" src="assets/sead-screenshot.png" />
+                <div class="project-body-container colrowspan screenshot-cover">
+                    <img class="screenshot-cover" src="assets/sead-screenshot.png" />
                 </div>
-                <div class="year-ribbon">{{ getCurrentYear() }}</div>
+                <!--<div class="year-ribbon">{{ getCurrentYear() }}</div>-->
             </div>
         </a>
     
         <a href="/visp">
             <div class="project-grid-tile">
-                <div class="project-header-container">
+                <div class="project-header-container colspan">
                     <img class="project-logo" src="assets/VISP-logo-black.png" />
                 </div>
-                <img class="screenshot" src="assets/visp-screenshot-1.png" />
-                <div class="year-ribbon">{{ getCurrentYear() }}</div>
+                <div class="split-pane-3-way colrowspan">
+                    <div class="split-pane pane-left">
+                        <img class="screenshot" src="assets/visp/screenshot2.png" />
+                    </div>
+                    <div class="split-pane">
+                        <img class="screenshot" src="assets/visp/screenshot4.png" />
+                    </div>
+                    <div class="split-pane">
+                        <img class="screenshot" src="assets/visp/screenshot3.png" />
+                    </div>
+                </div>
+                
+                <!--<div class="year-ribbon">{{ getCurrentYear() }}</div>-->
             </div>
         </a>
-        
+
         <a href="/westac">
-            <div class="project-grid-tile">
+            <div class="project-grid-tile project-grid-tile-4-pane">
                 <div class="project-header-container">
                     <h3 style="font-family: monospace;">Welfare state analytics</h3>
                 </div>
-                <img class="screenshot" src="assets/westac-splash.png">
-                <div class="year-ribbon">{{ getCurrentYear() }}</div>
+
+                <div class="screenshot-cover">
+                    <img class="screenshot-cover" src="assets/westac/screenshot1.png" />
+                </div>
+                <div class="screenshot-cover">
+                    <img class="screenshot-cover" src="assets/westac/screenshot-graph1.png" />
+                </div>
+                <div class="screenshot-cover">
+                    <img class="screenshot-cover" src="assets/westac/screenshot-graph2.png" />
+                </div>
+                
+                <!--<div class="year-ribbon">{{ getCurrentYear() }}</div>-->
             </div>
         </a>
 
@@ -43,32 +64,62 @@
         </div>
         -->
 
+
+        <a href="/digitalamodeller">
+            <div class="project-grid-tile">
+                <div class="project-header-container colspan">
+                    <h3>Digitala modeller</h3>
+                </div>
+                <div class="screenshot-cover rowspan">
+                    <img class="screenshot-cover" src="assets/digitalamodeller/model3.png" />
+                </div>
+                <div class="screenshot-cover">
+                    <img class="screenshot-cover" src="assets/digitalamodeller/model1.png" />
+                </div>
+                <div class="screenshot-cover">
+                    <img class="screenshot-cover" src="assets/digitalamodeller/model2.png" />
+                </div>
+                
+                <div class="year-ribbon year-ribbon-archived">2019</div>
+            </div>
+        </a>
+
         <a href="/enida">
             <div class="project-grid-tile">
-                <div class="project-header-container">
+                <div class="project-header-container colspan">
                     <h3>ENIDA</h3>
                 </div>
-                <img class="screenshot" src="assets/enida-screenshot-1.png">
+
+                <div class="project-body-container colrowspan screenshot-cover">
+                    <img class="screenshot" src="assets/enida-screenshot-1.png">
+                </div>
+                
                 <div class="year-ribbon year-ribbon-archived">2019</div>
             </div>
         </a>
 
         <a href="/yrkesrum">
             <div class="project-grid-tile">
-                <div class="project-header-container">
+                <div class="project-header-container colspan">
                     <h3>Yrkesrum</h3>
                 </div>
-                <img class="screenshot" src="assets/yrkesrum-screenshot-1.png">
+                <div class="project-body-container colrowspan screenshot-cover">
+                    <img class="screenshot" src="assets/yrkesrum/yrkesrum1.png">
+                </div>
+                
                 <div class="year-ribbon year-ribbon-archived">2018</div>
             </div>
         </a>
 
         <a href="/staden">
             <div class="project-grid-tile">
-                <div class="project-header-container">
+                <div class="project-header-container colspan">
                     <h3>Staden</h3>
                 </div>
-                <img class="screenshot" src="assets/staden-screenshot-1.png">
+                <div class="project-body-container colrowspan screenshot-cover">
+                    <img class="screenshot" src="assets/staden-screenshot-1.png">
+                </div>
+                
                 <div class="year-ribbon year-ribbon-archived">2014</div>
             </div>
         </a>

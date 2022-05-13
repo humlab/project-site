@@ -1,3 +1,8 @@
+h3 {
+    font-weight: bold;
+    font-size: 3em;
+}
+
 #main-grid-container {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -5,30 +10,101 @@
     column-gap: 5vw;
     row-gap: 5vw;
     justify-items: center;
+    margin-left: 10vw;
+    margin-right: 10vw;
 }
 
 .project-grid-tile {
     position: relative;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 0 3vw 1vw rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
     width: 20vw;
     height: 20vw;
-    padding: 2vw;
+    padding: 1.5vw;
+    transform: scale(1.0);
+    animation-name: scale-ani-out;
+    animation-duration: 0.1s;
+    border-radius: 15px;
+    overflow: hidden;
+    column-gap: 5px;
+    row-gap: 5px;
+}
+
+.project-grid-tile-4-pane {
+    grid-template-rows: 1fr 1fr;
 }
 
 .project-grid-tile:hover {
-    box-shadow: 0 0 3vw 1vw rgba(0, 0, 100, 0.15);
+    //box-shadow: 0 0 3vw 1vw rgba(255, 255, 0, 0.05);
+    transform: scale(1.1);
+    animation-name: scale-ani-in;
+    animation-duration: 0.1s;
     cursor: pointer;
+}
+
+@keyframes scale-ani-in {
+    from {transform: scale(1.0);}
+    to {transform: scale(1.1);}
+}
+
+@keyframes scale-ani-out {
+    from {transform: scale(1.1);}
+    to {transform: scale(1.0);}
+}
+
+.colspan {
+    grid-column: 1 / span 2;
+}
+
+.rowspan {
+    grid-row: 2 / span 2;
+}
+
+.colrowspan {
+    grid-column: 1 / span 2;
+    grid-row: 2 / span 2;
+}
+
+.split-pane-3-way {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    column-gap: 5px;
+    row-gap: 5px;
+    grid-template-areas: 
+    "tl tr"
+    "bl br";
+}
+
+.split-pane {
+    display:flex;
+    height: 100%;
+    width: 100%;
+}
+
+.split-pane img {
+    object-fit: cover;
+}
+
+.pane-top {
+    grid-column: 1;
+    grid-column: 1 / span 2;
+}
+
+.pane-left {
+    grid-column: 1;
+    grid-row: 1 / span 2;
 }
 
 .project-header-container {
     display: flex;
     justify-content: center;
     width: 100%;
-    height: 30%;
+    height: 100%;
     padding:0;
     margin:0;
 }
@@ -37,19 +113,14 @@
     display: flex;
     justify-content: center;
     width: 100%;
-    height: 70%;
+    height: 100%;
     padding:0;
     margin:0;
 }
 
 .project-logo {
     width: 100%;
-    height: 80%;
-    object-fit: contain;
-}
-
-img#sead-screenshot {
-    width: 100%;
+    height: 100%;
     object-fit: contain;
 }
 
@@ -76,6 +147,13 @@ img#sead-screenshot {
 }
 
 .screenshot {
+    height: 100%;
     width: 100%;
     object-fit: contain;
+}
+
+.screenshot-cover {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
 }

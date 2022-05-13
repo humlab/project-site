@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
+import { DigitalamodellerComponent } from './components/digitalamodeller/digitalamodeller.component';
 import { EnidaComponent } from './components/enida/enida.component';
 import { SeadComponent } from './components/sead/sead.component';
 import { StadenComponent } from './components/staden/staden.component';
@@ -15,7 +16,8 @@ const routes: Routes = [
   { path: 'westac', component: WestacComponent },
   { path: 'enida', component: EnidaComponent },
   { path: 'yrkesrum', component: YrkesrumComponent },
-  { path: 'staden', component: StadenComponent }
+  { path: 'staden', component: StadenComponent },
+  { path: 'digitalamodeller', component: DigitalamodellerComponent}
 ];
 
 @NgModule({

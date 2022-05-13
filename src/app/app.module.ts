@@ -11,6 +11,7 @@ import { IonicModule } from '@ionic/angular';
 import { EnidaComponent } from './components/enida/enida.component';
 import { YrkesrumComponent } from './components/yrkesrum/yrkesrum.component';
 import { StadenComponent } from './components/staden/staden.component';
+import { DigitalamodellerComponent } from './components/digitalamodeller/digitalamodeller.component';
 
 @NgModule({
   declarations: [
@@ -21,7 +22,8 @@ import { StadenComponent } from './components/staden/staden.component';
     WestacComponent,
     EnidaComponent,
     YrkesrumComponent,
-    StadenComponent
+    StadenComponent,
+    DigitalamodellerComponent
   ],
   imports: [
     BrowserModule,
