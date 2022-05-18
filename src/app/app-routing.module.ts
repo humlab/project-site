@@ -8,6 +8,7 @@ import { TilescapeComponent } from './components/tilescape/tilescape.component';
 import { VispComponent } from './components/visp/visp.component';
 import { WestacComponent } from './components/westac/westac.component';
 import { YrkesrumComponent } from './components/yrkesrum/yrkesrum.component';
+import { UtopiaComponent } from './components/utopia/utopia.component';
 
 const routes: Routes = [
   { path: '', component: TilescapeComponent },
@@ -17,7 +18,8 @@ const routes: Routes = [
   { path: 'enida', component: EnidaComponent },
   { path: 'yrkesrum', component: YrkesrumComponent },
   { path: 'staden', component: StadenComponent },
-  { path: 'digitalamodeller', component: DigitalamodellerComponent}
+  { path: 'digitalamodeller', component: DigitalamodellerComponent },
+  { path: 'utopia', component: UtopiaComponent }
 ];
 
 @NgModule({

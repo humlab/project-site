@@ -12,6 +12,7 @@ import { EnidaComponent } from './components/enida/enida.component';
 import { YrkesrumComponent } from './components/yrkesrum/yrkesrum.component';
 import { StadenComponent } from './components/staden/staden.component';
 import { DigitalamodellerComponent } from './components/digitalamodeller/digitalamodeller.component';
+import { UtopiaComponent } from './components/utopia/utopia.component';
 
 @NgModule({
   declarations: [
@@ -23,7 +24,8 @@ import { DigitalamodellerComponent } from './components/digitalamodeller/digital
     EnidaComponent,
     YrkesrumComponent,
     StadenComponent,
-    DigitalamodellerComponent
+    DigitalamodellerComponent,
+    UtopiaComponent
   ],
   imports: [
     BrowserModule,
