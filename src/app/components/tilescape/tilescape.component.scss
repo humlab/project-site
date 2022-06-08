@@ -5,13 +5,9 @@ h3 {
 
 #main-grid-container {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: auto;
-    column-gap: 5vw;
-    row-gap: 5vw;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-gap: 3vw;
     justify-items: center;
-    margin-left: 10vw;
-    margin-right: 10vw;
 }
 
 .project-grid-tile {
@@ -24,10 +20,10 @@ h3 {
     box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
     width: 20vw;
     height: 20vw;
-    padding: 1.5vw;
-    transform: scale(1.0);
-    animation-name: scale-ani-out;
-    animation-duration: 0.1s;
+    padding: 1vw;
+    //transform: scale(1.0);
+    //animation-name: scale-ani-out;
+    //animation-duration: 0.1s;
     border-radius: 1.5vw;
     overflow: hidden;
     column-gap: 5px;
@@ -46,7 +42,7 @@ h3 {
     cursor: pointer;
 }
 
-@keyframes scale-ani-in {
+/* @keyframes scale-ani-in {
     from {transform: scale(1.0);}
     to {transform: scale(1.1);}
 }
@@ -54,7 +50,7 @@ h3 {
 @keyframes scale-ani-out {
     from {transform: scale(1.1);}
     to {transform: scale(1.0);}
-}
+} */
 
 .colspan {
     grid-column: 1 / span 2;
@@ -131,7 +127,7 @@ h3 {
     width: 8vw;
     height: 2vw;
     background: rgb(24, 24, 122);
-    clip-path: polygon(25% 0, 75% 0%, 100% 100%, 0% 100%);
+    //clip-path: polygon(25% 0, 75% 0%, 100% 100%, 0% 100%);
     transform: rotate(45deg);
     color: #fff;
     display:flex;
@@ -146,10 +142,35 @@ h3 {
     background: rgb(122, 24, 24);
 }
 
+.infrastructur-tag {
+    position: absolute;
+    width: 3vw;
+    color: #fff;
+    font-family: 'Prompt', sans-serif;
+    font-weight: bold;
+    font-size: 1.2vw;
+    right: 2vw;
+    top: -3px;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 1vw), 50% 100%, 0 calc(100% - 1vw));
+    writing-mode: vertical-lr;
+    padding-top: 1vw;
+    padding-left: 0.6vw;
+    padding-bottom: 2vw;    
+}
+
+.infravis {
+    background-color: #3B3F92;
+}
+
+.huminfra {
+    background-color: #166d53;
+}
+
 .screenshot {
     height: 100%;
     width: 100%;
     object-fit: contain;
+    padding: 0;
 }
 
 .screenshot-cover {
