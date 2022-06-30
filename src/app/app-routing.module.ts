@@ -10,7 +10,7 @@ import { WestacComponent } from './components/westac/westac.component';
 import { YrkesrumComponent } from './components/yrkesrum/yrkesrum.component';
 import { UtopiaComponent } from './components/utopia/utopia.component';
 import { LinguisticLandscapeComponent } from './components/linguistic-landscape/linguistic-landscape.component';
-import { InfravisSeadComponent } from './component/infravis-sead/infravis-sead.component';
+import { InfravisSeadComponent } from './components/infravis-sead/infravis-sead.component';
 
 const routes: Routes = [
   { path: '', component: TilescapeComponent },
@@ -23,7 +23,7 @@ const routes: Routes = [
   { path: 'digitalamodeller', component: DigitalamodellerComponent },
   { path: 'utopia', component: UtopiaComponent },
   { path: 'linguistic-landscape', component: LinguisticLandscapeComponent},
-  {path: 'Infravis-sead', component: InfravisSeadComponent}
+  {path: 'infravis-sead', component: InfravisSeadComponent}
 ];
 
 @NgModule({

@@ -1,3 +1,4 @@
+@import "src/site-variables";
 
 h1 {
     font-size: 4em;
@@ -15,6 +16,7 @@ h1 {
     padding-left: 5vw;
     padding-right: 5vw;
     padding-bottom: 5vh;
+    font-family: $primary-font-family;
 }
 
 #tilescape-button {
@@ -28,3 +30,4 @@ h1 {
     color: #333;
     
 }
+

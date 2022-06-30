@@ -14,7 +14,7 @@ import { StadenComponent } from './components/staden/staden.component';
 import { DigitalamodellerComponent } from './components/digitalamodeller/digitalamodeller.component';
 import { UtopiaComponent } from './components/utopia/utopia.component';
 import { LinguisticLandscapeComponent } from './components/linguistic-landscape/linguistic-landscape.component';
-import { InfravisSeadComponent } from './component/infravis-sead/infravis-sead.component';
+import { InfravisSeadComponent } from './components/infravis-sead/infravis-sead.component';
 
 @NgModule({
   declarations: [

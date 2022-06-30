@@ -21,64 +21,50 @@ h1 {
 }
 
 h2 {
-    font-family: 'Prompt', sans-serif;
     margin-bottom: 3em;
 }
 
-h3 {
-    font-family: 'Prompt', sans-serif;
-}
-
-
-#main-grid-container > a {
-    text-decoration: none;
-}
-
 .main-container {
-    display: flex;
-    flex-wrap: wrap;
+    padding: 0 6em 0 6em;
 }
 
 .left-container {
-    display: flex;
-    justify-content: right;
+    float: left;
     width: 50%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 20px;
     padding-right: 1em;
 }
 
 .right-container {
-    display: flex;
-    justify-content: left;
+    float: right;
     width: 50%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 20px;
     padding-left: 1em;
 }
 
 .desc-text {
-    /*
-    margin-left: 4em;
-    margin-right: 4em;
-    */
-    padding-left: 0.8em;
+    padding: 0 0 0 0.8em;
     font-size: 1.2em;
-    font-family: 'Prompt', sans-serif;
     font-weight: bold;
-    max-width: 30em;
-    border-left: 3px red solid;
+    border-left: 3px rgb(255, 123, 0) solid;
+    grid-column: span 2;
+    margin: 20px 0 0 0;
 }
 
 .explore-button {
-    display: inline-block;
-    /*
-    margin-left: 2em;
-    */
-    margin-top: 0.5em;
     padding: 0.5em;
     background: rgb(255, 123, 0);
     box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
     font-size: 1.5em;
-    font-family: 'Fugaz One', cursive;
+    font-family: 'Fugaz One';
     color: #fff;
-    margin-bottom: 0.5em;
+    text-decoration: none;
+    grid-column: span 2;
+    justify-self: left;
 }
 
 .explore-button:hover {
@@ -87,28 +73,30 @@ h3 {
     box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
 }
 
-.screenshot-image {
-    max-width: 30vw;
-    //margin: 2em;
+.project-image {
+    background-color: #ddd;
+    padding: 0.5em;
+    grid-column: span 2;
+}
+
+.project-image span {
+    font-style: italic;
+    font-size: 0.9em;
+    font-family: "Roboto", "Helvetica Neue", sans-serif;
 }
 
 .info-box {
-    display: inline-block;
-    width: auto;
-    max-width: 40em;
     background-color: #eee;
     padding: 2em;
     font-family: 'Prompt', sans-serif;
     font-weight: bold;
-    margin-top: 2em;
-    margin-bottom: 2em;
     text-align: justify;
+    grid-column: span 2;
 }
 
 .text-highlight {
     font-weight: bold;
     font-style: italic;
-    font-family: 'Prompt', sans-serif;
 }
 
 .people-box {
@@ -117,7 +105,6 @@ h3 {
     background-color: rgb(32, 32, 99);
     color: #fff;
     padding: 2em;
-    font-family: 'Prompt', sans-serif;
     margin-left: 0em;
 }
 
@@ -148,30 +135,9 @@ h3 {
     //text-shadow: 0px 0px 0.5em rgba(255, 255, 255, 1.0);
 }
 
-.project-header-container > h3 {
-    font-size: 1.8vw;
-    color: #000;
-    text-decoration: none;
-}
-
 .sub-header {
-    margin-bottom: 1em;
+    font-size: 2em;
+    margin-bottom: 1.5em;
     font-weight: bold;
-}
-
-
-.project-image {
-    max-width: 30vw;
-    background: #ddd;
-    padding: 0.5em;
-}
-
-.project-image img {
-    width: 100%;
-}
-
-.project-image span {
-    display: inline-block;
-    font-style: italic;
-    font-size: 0.9em;
+    text-align: center;
 }

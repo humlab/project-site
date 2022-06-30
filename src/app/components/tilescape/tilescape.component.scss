@@ -1,59 +1,81 @@
-h3 {
+.project-header-container > h3 {
+    font-size: 2em;
+    color: #000;
     font-weight: bold;
-    font-size: 2vw;
+    text-decoration: none;
 }
 
 #main-grid-container {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-    grid-gap: 3vw;
-    justify-items: center;
+    grid-template-columns: repeat(auto-fill, 350px);
+    grid-gap: 40px;
+    justify-content: center;
+    padding: 0 2em 0 2em;
+}
+
+#main-grid-container > a {
+    text-decoration: none;
 }
 
 .project-grid-tile {
     position: relative;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
     justify-content: center;
     align-items: center;
     box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
-    width: 20vw;
-    height: 20vw;
-    padding: 1vw;
-    //transform: scale(1.0);
-    //animation-name: scale-ani-out;
-    //animation-duration: 0.1s;
-    border-radius: 1.5vw;
+    height: 350px;
+    transform: scale(1.0);
+    animation-name: scale-ani-out;
+    animation-duration: 0.1s;
+    border-radius: 10px;
+    padding: 1em;
     overflow: hidden;
-    column-gap: 5px;
-    row-gap: 5px;
+    /* 
+    border-style: solid;
+    border-color: rgb(139, 139, 139);
+    border-width: 2px; */
+}
+
+@media only screen and (max-width: 900px) {
+    #main-grid-container {
+        display: grid;
+        grid-template-columns: 400px;
+        grid-gap:40px;
+        justify-content: center;
+    }
+
+    .project-grid-tile {
+        height: 400px;
+    }
 }
 
 .project-grid-tile-4-pane {
+    display: grid;
     grid-template-rows: 1fr 1fr;
 }
 
 .project-grid-tile:hover {
     //box-shadow: 0 0 3vw 1vw rgba(255, 255, 0, 0.05);
-    transform: scale(1.1);
+    transform: scale(1.06);
     animation-name: scale-ani-in;
     animation-duration: 0.1s;
     cursor: pointer;
 }
 
-/* @keyframes scale-ani-in {
+@keyframes scale-ani-in {
     from {transform: scale(1.0);}
-    to {transform: scale(1.1);}
+    to {transform: scale(1.06);}
 }
 
 @keyframes scale-ani-out {
-    from {transform: scale(1.1);}
+    from {transform: scale(1.06);}
     to {transform: scale(1.0);}
-} */
+}
 
 .colspan {
-    grid-column: 1 / span 2;
+    grid-column: span 2;
 }
 
 .rowspan {
@@ -61,16 +83,14 @@ h3 {
 }
 
 .colrowspan {
-    grid-column: 1 / span 2;
-    grid-row: 2 / span 2;
+    grid-column: span 2;
+    grid-row: 2 / 3;
 }
 
 .split-pane-3-way {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
-    column-gap: 5px;
-    row-gap: 5px;
     grid-template-areas: 
     "tl tr"
     "bl br";
@@ -99,19 +119,11 @@ h3 {
 .project-header-container {
     display: flex;
     justify-content: center;
-    width: 100%;
-    height: 100%;
-    padding:0;
-    margin:0;
 }
 
 .project-body-container {
     display: flex;
     justify-content: center;
-    width: 100%;
-    height: 100%;
-    padding:0;
-    margin:0;
 }
 
 .project-logo {
@@ -122,12 +134,10 @@ h3 {
 
 .year-ribbon {
     position:absolute;
-    top: calc(1.11vw);
-    right: calc(-1.9vw);
-    width: 8vw;
-    height: 2vw;
+    top: 0.9em;
+    right: -2em;
     background: rgb(24, 24, 122);
-    //clip-path: polygon(25% 0, 75% 0%, 100% 100%, 0% 100%);
+    //clip-path: polygon(25% 0, 90% 0%, 100% 100%, 0% 100%);
     transform: rotate(45deg);
     color: #fff;
     display:flex;
@@ -135,31 +145,30 @@ h3 {
     align-items: center;
     font-family: 'Prompt', sans-serif;
     font-weight: bold;
-    font-size: 1.2vw;
+    font-size: 1.2em;
+    padding: 0.4em 3em 0.4em 3em;
 }
 
 .year-ribbon-archived {
-    background: rgb(122, 24, 24);
+    background: rgb(145, 38, 38);
 }
 
 .infrastructur-tag {
     position: absolute;
-    width: 3vw;
     color: #fff;
     font-family: 'Prompt', sans-serif;
     font-weight: bold;
-    font-size: 1.2vw;
-    right: 2vw;
-    top: -3px;
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 1vw), 50% 100%, 0 calc(100% - 1vw));
+    font-size: 1.2em;
+    right: 1.5em;
+    top: -5px;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 1em), 50% 100%, 0 calc(100% - 1em));
     writing-mode: vertical-lr;
-    padding-top: 1vw;
-    padding-left: 0.6vw;
-    padding-bottom: 2vw;    
+    padding: 1em 0.4em 1.8em 0.4em;
 }
 
 .infravis {
     background-color: #3B3F92;
+    opacity: 0.95;
 }
 
 .huminfra {
@@ -167,14 +176,13 @@ h3 {
 }
 
 .screenshot {
-    height: 100%;
     width: 100%;
     object-fit: contain;
-    padding: 0;
 }
 
 .screenshot-cover {
     height: 100%;
+    max-height: 220px;
     width: 100%;
     object-fit: cover;
 }
