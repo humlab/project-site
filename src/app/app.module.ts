@@ -17,6 +17,8 @@ import { LinguisticLandscapeComponent } from './components/linguistic-landscape/
 import { InfravisSeadComponent } from './components/infravis-sead/infravis-sead.component';
 import { InidunComponent } from './components/inidun/inidun.component';
 import { DigitalPeriegesisComponent } from './components/digital-periegesis/digital-periegesis.component';
+import { ShipsComponent } from './components/ships/ships.component';
+import { IacceptComponent } from './somponents/iaccept/iaccept.component';
 
 @NgModule({
   declarations: [
@@ -33,7 +35,9 @@ import { DigitalPeriegesisComponent } from './components/digital-periegesis/digi
     LinguisticLandscapeComponent,
     InfravisSeadComponent,
     InidunComponent,
-    DigitalPeriegesisComponent
+    DigitalPeriegesisComponent,
+    ShipsComponent,
+    IacceptComponent
   ],
   imports: [
     BrowserModule,

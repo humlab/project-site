@@ -13,6 +13,7 @@ import { LinguisticLandscapeComponent } from './components/linguistic-landscape/
 import { InfravisSeadComponent } from './components/infravis-sead/infravis-sead.component';
 import { InidunComponent } from './components/inidun/inidun.component';
 import { DigitalPeriegesisComponent } from './components/digital-periegesis/digital-periegesis.component';
+import { ShipsComponent } from './components/ships/ships.component';
 
 
 const routes: Routes = [
@@ -28,8 +29,8 @@ const routes: Routes = [
   { path: 'linguistic-landscape', component: LinguisticLandscapeComponent},
   { path: 'infravis-sead', component: InfravisSeadComponent},
   { path: 'inidun', component: InidunComponent},
-  { path: 'digital-periegesis', component: DigitalPeriegesisComponent}
-
+  { path: 'digital-periegesis', component: DigitalPeriegesisComponent},
+  { path: 'ships', component: ShipsComponent}
 ];
 
 @NgModule({
