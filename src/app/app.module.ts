@@ -15,6 +15,8 @@ import { DigitalamodellerComponent } from './components/digitalamodeller/digital
 import { UtopiaComponent } from './components/utopia/utopia.component';
 import { LinguisticLandscapeComponent } from './components/linguistic-landscape/linguistic-landscape.component';
 import { InfravisSeadComponent } from './components/infravis-sead/infravis-sead.component';
+import { InidunComponent } from './components/inidun/inidun.component';
+import { DigitalPeriegesisComponent } from './components/digital-periegesis/digital-periegesis.component';
 
 @NgModule({
   declarations: [
@@ -29,7 +31,9 @@ import { InfravisSeadComponent } from './components/infravis-sead/infravis-sead.
     DigitalamodellerComponent,
     UtopiaComponent,
     LinguisticLandscapeComponent,
-    InfravisSeadComponent
+    InfravisSeadComponent,
+    InidunComponent,
+    DigitalPeriegesisComponent
   ],
   imports: [
     BrowserModule,

@@ -4,6 +4,11 @@ h1 {
     font-size: 4em;
 }
 
+h1 a {
+    text-decoration: none;
+    color: $primary-accent-color;
+}
+
 #header hr {
     height: 1px;
     width: auto;
@@ -17,6 +22,8 @@ h1 {
     padding-right: 5vw;
     padding-bottom: 5vh;
     font-family: $primary-font-family;
+    color: #363432;
+    font-weight: $font-weight;
 }
 
 #tilescape-button {

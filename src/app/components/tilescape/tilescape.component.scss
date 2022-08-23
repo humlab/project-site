@@ -1,8 +1,12 @@
-.project-header-container > h3 {
-    font-size: 2em;
+@import "src/site-variables";
+
+.project-header-container h3 {
+    font-size: 1.8em;
     color: #000;
     font-weight: bold;
     text-decoration: none;
+    text-align: center;
+    margin-bottom: 20px;
 }
 
 #main-grid-container {
@@ -13,7 +17,7 @@
     padding: 0 2em 0 2em;
 }
 
-#main-grid-container > a {
+#main-grid-container a {
     text-decoration: none;
 }
 
@@ -21,9 +25,7 @@
     position: relative;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    justify-content: center;
-    align-items: center;
+    grid-template-rows: max-content 1fr 1fr;
     box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
     height: 350px;
     transform: scale(1.0);
@@ -32,23 +34,6 @@
     border-radius: 10px;
     padding: 1em;
     overflow: hidden;
-    /* 
-    border-style: solid;
-    border-color: rgb(139, 139, 139);
-    border-width: 2px; */
-}
-
-@media only screen and (max-width: 900px) {
-    #main-grid-container {
-        display: grid;
-        grid-template-columns: 400px;
-        grid-gap:40px;
-        justify-content: center;
-    }
-
-    .project-grid-tile {
-        height: 400px;
-    }
 }
 
 .project-grid-tile-4-pane {
@@ -57,11 +42,9 @@
 }
 
 .project-grid-tile:hover {
-    //box-shadow: 0 0 3vw 1vw rgba(255, 255, 0, 0.05);
     transform: scale(1.06);
     animation-name: scale-ani-in;
     animation-duration: 0.1s;
-    cursor: pointer;
 }
 
 @keyframes scale-ani-in {
@@ -82,50 +65,6 @@
     grid-row: 2 / span 2;
 }
 
-.colrowspan {
-    grid-column: span 2;
-    grid-row: 2 / 3;
-}
-
-.split-pane-3-way {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    grid-template-areas: 
-    "tl tr"
-    "bl br";
-}
-
-.split-pane {
-    display:flex;
-    height: 100%;
-    width: 100%;
-}
-
-.split-pane img {
-    object-fit: cover;
-}
-
-.pane-top {
-    grid-column: 1;
-    grid-column: 1 / span 2;
-}
-
-.pane-left {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-}
-
-.project-header-container {
-    display: flex;
-    justify-content: center;
-}
-
-.project-body-container {
-    display: flex;
-    justify-content: center;
-}
-
 .project-logo {
     width: 100%;
     height: 100%;
@@ -136,28 +75,21 @@
     position:absolute;
     top: 0.9em;
     right: -2em;
-    background: rgb(24, 24, 122);
-    //clip-path: polygon(25% 0, 90% 0%, 100% 100%, 0% 100%);
     transform: rotate(45deg);
-    color: #fff;
-    display:flex;
-    justify-content: center;
+    color: $text-color;
     align-items: center;
     font-family: 'Prompt', sans-serif;
-    font-weight: bold;
     font-size: 1.2em;
-    padding: 0.4em 3em 0.4em 3em;
+    padding: 0.3em 3em 0.3em 3em;
 }
 
 .year-ribbon-archived {
-    background: rgb(145, 38, 38);
+    background-color: $primary-accent-color;
 }
 
 .infrastructur-tag {
     position: absolute;
-    color: #fff;
-    font-family: 'Prompt', sans-serif;
-    font-weight: bold;
+    color: $text-color;
     font-size: 1.2em;
     right: 1.5em;
     top: -5px;
@@ -166,23 +98,58 @@
     padding: 1em 0.4em 1.8em 0.4em;
 }
 
-.infravis {
-    background-color: #3B3F92;
-    opacity: 0.95;
-}
-
-.huminfra {
+.infrastructur-tag2 {
+    position: absolute;
+    color: $text-color;
+    font-size: 1.2em;
+    right: 1.2em;
+    bottom: 0px;
+    padding: 1.5em 0.4em 0.7em 0.4em;
+    background-color: #000;
+    writing-mode: vertical-lr;
+    clip-path: polygon(0 15%, 50% 0, 100% 15%, 100% 100%, 0 100%);
+    //transform: rotate(-180deg);
     background-color: #166d53;
 }
 
-.screenshot {
-    width: 100%;
-    object-fit: contain;
+.test {
+    font-size: 0.9em;
+}
+
+.infrastructur-tags {
+    position: absolute;
+    justify-content: center;
+    left: -1.5em;
+    bottom: -10px;
+}
+
+.infrastructur-tags li{
+    display: inline-block;
+    width: max-content;
+    color:$text-color;
+    padding: 2px 10px 2px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    margin: 0 0 3px 3px;
+}
+
+.infravis {
+/*     background-color: #3B3F92;
+    opacity: 0.95; */
+    background-image: linear-gradient(rgba(255, 255, 0, 0.8), rgba(255, 166, 0, 0.8), rgba(255, 0, 0, 0.8), rgba(128, 0, 128, 0.8) 60%, rgba(0, 0, 255, 0.8) 90%);
+}
+
+.huminfra {
+    background-color: $secondary-accent-color;
 }
 
 .screenshot-cover {
-    height: 100%;
-    max-height: 220px;
     width: 100%;
+    height: 100%;
     object-fit: cover;
+}
+
+.project-body-container {
+    height: 230px;
+    overflow: hidden;
 }

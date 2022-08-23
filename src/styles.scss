@@ -1,6 +1,6 @@
 /* You can add global styles to this file, and also import other style files */
 @import url('https://fonts.googleapis.com/css2?family=Fugaz+One&family=Italianno&family=Prompt:ital,wght@0,100;1,300&display=swap');
-
+@import "site-variables";
 
 @font-face {
     font-family: 'Harlow Solid';
@@ -14,98 +14,115 @@
 }
 
 h1 {
-    font-family: 'Harlow Solid', 'Italianno', cursive;
-    font-size: 4em;
-    margin:0;
-    color: #555;
+    font-family: $headline-font;
 }
 
 h2 {
-    margin-bottom: 3em;
+    margin-bottom: 2em;
 }
 
 .main-container {
     padding: 0 6em 0 6em;
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    grid-auto-rows: max-content;
+    grid-gap: 20px;
 }
 
 .left-container {
-    float: left;
-    width: 50%;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-gap: 20px;
-    padding-right: 1em;
+    grid-auto-rows: max-content;
+    grid-gap: 30px;
 }
 
 .right-container {
-    float: right;
-    width: 50%;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-gap: 20px;
-    padding-left: 1em;
+    grid-auto-rows: max-content;
+    grid-gap: 30px;
 }
 
 .desc-text {
-    padding: 0 0 0 0.8em;
-    font-size: 1.2em;
-    font-weight: bold;
-    border-left: 3px rgb(255, 123, 0) solid;
+    padding: 1em 0 1em 0.8em;
+    font-size: 1.4em;
+    border-left: 4px $primary-accent-color solid;
     grid-column: span 2;
-    margin: 20px 0 0 0;
+    margin: 0;
+}
+
+.desc-text a {
+    color: $secondary-accent-color;
 }
 
 .explore-button {
     padding: 0.5em;
-    background: rgb(255, 123, 0);
+    background: $primary-accent-color;
     box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
-    font-size: 1.5em;
+    font-size: 1.6em;
     font-family: 'Fugaz One';
-    color: #fff;
+    font-weight: normal;
+    color: $text-color;
     text-decoration: none;
     grid-column: span 2;
     justify-self: left;
 }
 
+/* .left {
+    grid-column: 1;
+    width: 100%;
+}
+
+.right {
+    grid-column: 2;
+    width: 100%;
+} */
+
 .explore-button:hover {
-    cursor:pointer;
-    background: lighten(rgb(255, 123, 0), 10%);
+    background: lighten($primary-accent-color, 10%);
     box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
 }
 
+.logo-project {
+    grid-column: span 2;
+    justify-self: center;
+}
+
 .project-image {
-    background-color: #ddd;
+    background-color: $box-background-color;
     padding: 0.5em;
     grid-column: span 2;
 }
 
 .project-image span {
+    font-weight: normal;
     font-style: italic;
-    font-size: 0.9em;
     font-family: "Roboto", "Helvetica Neue", sans-serif;
 }
 
+.project-image img {
+    width: 100%;
+}
+
 .info-box {
-    background-color: #eee;
+    background-color: $box-background-color;
     padding: 2em;
-    font-family: 'Prompt', sans-serif;
-    font-weight: bold;
     text-align: justify;
     grid-column: span 2;
+    margin: 0;
+    font-size: 1.2em;
 }
 
 .text-highlight {
-    font-weight: bold;
     font-style: italic;
+    color: $primary-accent-color;
 }
 
 .people-box {
-    display: inline-block;
-    width: auto;
-    background-color: rgb(32, 32, 99);
     color: #fff;
     padding: 2em;
-    margin-left: 0em;
+    text-align: center;
+    font-size: 1.2em;
 }
 
 .people-box ul {
@@ -117,6 +134,7 @@ h2 {
     list-style-type: none;
     font-size: 1em;
     font-weight: bold;
+    text-decoration: none;
 }
 
 .people-box h3 {
@@ -125,14 +143,22 @@ h2 {
     font-weight: normal;
 }
 
-.people-link {
-    color: #fff;
+.people-box a {
     text-decoration: none;
+    color: $text-color;
 }
 
-.people-link:hover {
+.people-box a:hover {
     text-decoration: underline;
     //text-shadow: 0px 0px 0.5em rgba(255, 255, 255, 1.0);
+}
+
+.humlab {
+    background-color: $secondary-accent-color;
+}
+
+.previously {
+    background-color: #90A19D;
 }
 
 .sub-header {
@@ -140,4 +166,14 @@ h2 {
     margin-bottom: 1.5em;
     font-weight: bold;
     text-align: center;
+}
+
+.videoframe {
+    grid-column: span 2;
+    height: 300px;
+}
+
+.videoframe iframe {
+    width: 100%;
+    height: 100%;
 }
