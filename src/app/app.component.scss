@@ -18,14 +18,15 @@ h1 a {
 #baseplate {
     height: 100vh;
     overflow: auto;
-    padding-left: 5vw;
-    padding-right: 5vw;
-    padding-bottom: 5vh;
+    padding-left: 4vw;
+    padding-right: 4vw;
+    padding-bottom: 4vh;
     margin: auto;
     max-width: 3000px;
     font-family: $primary-font-family;
     color: #363432;
     font-weight: bold;
+    font-size: 1em;
 }
 
 #tilescape-button {
@@ -38,5 +39,16 @@ h1 a {
     font-size: 4em;
     color: #333;
     
+}
+
+@media only screen and (max-width: 767px){
+    #baseplate {
+        font-size: 0.8em;
+    }
+
+    h1 {
+        font-size: 3em;
+        text-align: center;
+    }
 }
 
