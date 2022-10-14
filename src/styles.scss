@@ -13,6 +13,11 @@
     font-display: swap;
 }
 
+@font-face {
+    font-family: 'WendyOne-Regular';
+    src: url('assets/WendyOne-Regular.ttf');
+}
+
 .main-container {
     padding: 0 6em 0 6em;
     display: grid;
@@ -54,10 +59,10 @@ h2 {
     border-left: 4px $primary-accent-color solid;
     grid-column: span 2;
     margin: 0;
-}
-
-.desc-text a {
-    color: $secondary-accent-color;
+    
+    a {
+        color: $secondary-accent-color;
+    }
 }
 
 .explore-button {
@@ -65,12 +70,15 @@ h2 {
     background: $primary-accent-color;
     box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
     font-size: 1.3em;
-    font-family: 'Fugaz One';
+    font-family: 'WendyOne-Regular';
     font-weight: normal;
     color: $text-color;
     text-decoration: none;
     grid-column: span 2;
+    letter-spacing: 1px;
+    //text-align: center;
     justify-self: left;
+
 }
 
 .explore-button:hover {
@@ -82,16 +90,17 @@ h2 {
     background-color: $box-background-color;
     padding: 0.5em;
     grid-column: span 2;
-}
+    
+    span {
+        font-weight: normal;
+        font-style: italic;
+        font-size: 0.9em;
+        color: lighten(#000, 20%);
+    }
 
-.project-image span {
-    font-weight: normal;
-    font-style: italic;
-    font-family: "Roboto", "Helvetica Neue", sans-serif;
-}
-
-.project-image img {
-    width: 100%;
+    img {
+        width: 100%;
+    }
 }
 
 .info-box {
@@ -100,43 +109,55 @@ h2 {
     text-align: justify;
     grid-column: span 2;
     margin: 0;
+    
+    span {
+        font-style: italic;
+        color: $primary-accent-color;
+    }
 }
 
-.info-box span {
-    font-style: italic;
-    color: $primary-accent-color;
-}
-
-.people-box {
+.box {
     color: #fff;
     padding: 1.5em;
     text-align: center;
+    grid-row: 50px;
+    
+    ul {
+        padding:0;
+        margin:0;
+        list-style-type: none;
+    }
+
+
+    li a {
+        text-decoration: none;
+        color: $text-color;
+    }
+    
+    h3 {
+        margin-top: 0;
+        font-family: 'WendyOne-Regular';
+    }
 }
 
-.people-box ul {
-    padding:0;
-    margin:0;
-}
-
-.people-box li {
-    list-style-type: none;
-    font-size: 1em;
-    font-weight: bold;
-    text-decoration: none;
-}
-
-.people-box h3 {
-    margin-top: 0;
-    font-family: 'Fugaz One';
-}
-
-.people-box a {
-    text-decoration: none;
-    color: $text-color;
-}
-
-.people-box a:hover {
+.box a:hover {
     text-decoration: underline;
+}
+
+.two-col-people {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    li {
+        text-align: center;
+        
+        span {
+            font-family: 'WendyOne-Regular';
+            font-weight: normal;
+            letter-spacing: 1px;
+            font-size: 1.1em;
+        }
+    }
 }
 
 .humlab {
@@ -145,6 +166,39 @@ h2 {
 
 .cooperation {
     background-color: $primary-accent-color;
+}
+
+.infrastructure {
+    grid-column: span 2;
+    color: #444444;
+    padding-top: 0;
+
+    img {
+        width: 100%;
+    }
+}
+
+.financier {
+    grid-column: span 2;
+    
+    h3 {
+            color: #444444;
+        }
+    
+    .financier-logo {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 1em;
+
+        a {
+            width: 200px;
+        }
+        img {
+            max-height: 100px;
+        }
+}
 }
 
 .sub-header {
@@ -156,18 +210,12 @@ h2 {
 .videoframe {
     grid-column: span 2;
     height: 300px;
+    
+    iframe {
+        width: 100%;
+        height: 100%;
+    }
 }
-
-.videoframe iframe {
-    width: 100%;
-    height: 100%;
-}
-
-.right-container a {
-    align-self: center;
-}
-
-
 
 @media only screen and (max-width: 767px){
     .main-container{
@@ -195,21 +243,31 @@ h2 {
         width: 70%;
     }
 
-    .people-box {
+    .box {
         padding: 1.3em;
+
+        h3 {
+            font-size: 1.3em;
+        }
+
+        li {
+            font-size: 1.1em;
+            padding-bottom: 5px;
+        }
     }
 
-    .people-box h3 {
-        font-size: 1.3em;
-    }
-
-    .people-box li {
-        font-size: 1.1em;
-        padding-bottom: 5px;
+    .financier {
+        li {
+            width: 100px;
+        }
     }
 
     .desc-text, .info-box {
         font-size: 1.1em;
+    }
+
+    .two-col-people {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -219,4 +277,13 @@ and (max-width: 1023px){
         grid-template-columns: 1fr;
         padding: 1em;
     }
+}
+
+@media only screen and (min-width: 1023px)
+and (max-width: 1430px){
+        .people {
+        grid-template-columns: 1fr;
+    }
+
+    
 }

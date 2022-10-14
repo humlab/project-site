@@ -14,23 +14,23 @@
 
 .project-header-container {
     margin-bottom: 20px;
-}
+    
+    h3 {
+        font-size: 1.6em;
+        color: #000;
+        font-weight: bold;
+        text-decoration: none;
+        text-align: center;
+        margin-bottom: 0;
+    }
 
-.project-header-container h3 {
-    font-size: 1.6em;
-    color: #000;
-    font-weight: bold;
-    text-decoration: none;
-    text-align: center;
-    margin-bottom: 0;
-}
-
-.project-header-container h4 {
-    text-align: center;
-    margin: 0 0 -10px 0;
-    color: $primary-accent-color;
-    text-decoration: none;
-    font-weight: bold;
+    h4 {
+        text-align: center;
+        margin: 0 0 -10px 0;
+        color: $primary-accent-color;
+        text-decoration: none;
+        font-weight: bold;
+    }
 }
 
 .project-grid-tile {
@@ -83,42 +83,19 @@
     object-fit: contain;
 }
 
-/* .year-ribbon {
-    position:absolute;
-    top: 0.9em;
-    right: -2em;
-    transform: rotate(45deg);
-    color: $text-color;
-    align-items: center;
-    font-size: 1.2em;
-    padding: 0.2em 3em 0.2em 3em;
-}
-
-.year-ribbon { 
-    position: absolute;
-    right: 0;
-    padding: 0.2em 1em 0.2em 1em;
-    border-radius: 0 0 0 10px;
-    color:$text-color;
-}
-
-.archived {
-    background-color: $primary-accent-color;
-} */
-
 .infrastructure-tags {
     position: absolute;
     bottom: 0;
     margin: 0;
     padding: 0;
-}
-
-.infrastructure-tags li {
-    display: inline-block;
-    width: max-content;
-    color:$text-color;
-    padding: 0.2em 1.3em 0.2em 1.3em;
-    border-radius: 0 10px 0 0;
+    
+    li {
+        display: inline-block;
+        width: max-content;
+        color:$text-color;
+        padding: 0.2em 1.3em 0.2em 1.3em;
+        border-radius: 0 10px 0 0;
+    }
 }
 
 .infravis {
@@ -155,29 +132,16 @@
         padding: 0.7em;
     }
 
-    .project-header-container h3 {
-        margin: 10px 10px 0 10px;
-    }
-    
     .project-header-container {
         margin-bottom: 10px;
-    }
-
-    .project-header-container h4 {
+        
+        h3 {
+        margin: 10px 10px 0 10px;
+        }
+        
+        h4 {
         font-size: 1.3em;
         margin: 0;
+        }
     }
 }
-
-/* @media only screen and (min-width: 768px) and (max-width: 895px) {
-    #main-grid-container {
-        grid-template-columns: repeat(auto-fill, 270px);
-        grid-gap: 20px;
-    }
-
-    .project-grid-tile {
-        height: 270px;
-        padding: 0.7em;
-    }
-    
-} */
