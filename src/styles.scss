@@ -248,6 +248,8 @@ h2 {
 
     .sub-header {
         font-size: 1.4em;
+        margin-bottom: 0;
+        
     }
 
     .logo-project {
@@ -288,13 +290,15 @@ and (max-width: 1023px){
         grid-template-columns: 1fr;
         padding: 1em;
     }
+
+    .sub-header {
+        margin-bottom: 0;
+    }
 }
 
 @media only screen and (min-width: 1023px)
 and (max-width: 1430px){
         .people {
         grid-template-columns: 1fr;
-    }
-
-    
+    }   
 }
