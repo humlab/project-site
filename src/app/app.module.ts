@@ -19,6 +19,7 @@ import { InidunComponent } from './components/inidun/inidun.component';
 import { DigitalPeriegesisComponent } from './components/digital-periegesis/digital-periegesis.component';
 import { ShipsComponent } from './components/ships/ships.component';
 import { IacceptComponent } from './components/iaccept/iaccept.component';
+import { DigibonComponent } from './components/digibon/digibon.component';
 
 @NgModule({
   declarations: [
@@ -37,7 +38,8 @@ import { IacceptComponent } from './components/iaccept/iaccept.component';
     InidunComponent,
     DigitalPeriegesisComponent,
     ShipsComponent,
-    IacceptComponent
+    IacceptComponent,
+    DigibonComponent
   ],
   imports: [
     BrowserModule,

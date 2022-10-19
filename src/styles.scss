@@ -63,7 +63,17 @@ h2 {
     a {
         color: $secondary-accent-color;
     }
+    
+    .sv {
+    font-size: 0.9em;
+    color: $secondary-accent-color;
+    font-style: italic;
+    font-weight: normal;
+
 }
+}
+
+
 
 .explore-button {
     padding: 0.7em;
@@ -195,10 +205,11 @@ h2 {
         a {
             width: 200px;
         }
+
         img {
             max-height: 100px;
         }
-}
+    }
 }
 
 .sub-header {
