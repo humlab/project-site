@@ -48,6 +48,13 @@ h2 {
     margin-bottom: 2em;
 }
 
+.year {
+    text-align: center;
+    color: $primary-accent-color;
+    font-weight: bold;
+    margin: 0;
+}
+
 .logo-project {
     grid-column: span 2;
     justify-self: center;
@@ -216,6 +223,7 @@ h2 {
     margin-bottom: 1.5em;
     font-weight: bold;
     text-align: center;
+    margin: 1em;
 }
 
 .videoframe {
