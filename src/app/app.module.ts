@@ -20,6 +20,7 @@ import { DigitalPeriegesisComponent } from './components/digital-periegesis/digi
 import { ShipsComponent } from './components/ships/ships.component';
 import { IacceptComponent } from './components/iaccept/iaccept.component';
 import { DigibonComponent } from './components/digibon/digibon.component';
+import { RaveComponent } from './components/rave/rave.component';
 
 @NgModule({
   declarations: [
@@ -39,7 +40,8 @@ import { DigibonComponent } from './components/digibon/digibon.component';
     DigitalPeriegesisComponent,
     ShipsComponent,
     IacceptComponent,
-    DigibonComponent
+    DigibonComponent,
+    RaveComponent
   ],
   imports: [
     BrowserModule,

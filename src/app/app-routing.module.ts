@@ -16,6 +16,7 @@ import { DigitalPeriegesisComponent } from './components/digital-periegesis/digi
 import { ShipsComponent } from './components/ships/ships.component';
 import { IacceptComponent } from './components/iaccept/iaccept.component';
 import { DigibonComponent } from './components/digibon/digibon.component';
+import { RaveComponent } from './components/rave/rave.component';
 
 
 const routes: Routes = [
@@ -34,7 +35,8 @@ const routes: Routes = [
   { path: 'digital-periegesis', component: DigitalPeriegesisComponent},
   { path: 'ships', component: ShipsComponent},
   { path: 'iaccept', component: IacceptComponent},
-  { path: 'digibon', component: DigibonComponent}
+  { path: 'digibon', component: DigibonComponent},
+  { path: 'rave', component:RaveComponent}
 ];
 
 @NgModule({
