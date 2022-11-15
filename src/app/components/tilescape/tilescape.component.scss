@@ -57,6 +57,10 @@
     transform: scale(1.06);
     animation-name: scale-ani-in;
     animation-duration: 0.1s;
+
+    .screenshot-cover {
+        opacity: 1;
+    }
 }
 
 @keyframes scale-ani-in {
@@ -119,6 +123,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    opacity: 0.75;
 }
 
 @media only screen and (max-width: 788px) {
