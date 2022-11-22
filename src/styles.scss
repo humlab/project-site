@@ -26,6 +26,15 @@
     grid-gap: 30px;
 }
 
+.main-container-one-col {
+    padding: 0 10em 0 10em;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-flow: max-content;
+    grid-gap: 30px;
+
+}
+
 .left-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -94,6 +103,7 @@ h2 {
     letter-spacing: 1px;
     //text-align: center;
     justify-self: left;
+    border-radius: 3px;
 
 }
 
@@ -106,6 +116,7 @@ h2 {
     background-color: $box-background-color;
     padding: 0.5em;
     grid-column: span 2;
+    border-radius: 3px;
     
     span {
         font-weight: normal;
@@ -116,6 +127,7 @@ h2 {
 
     img {
         width: 100%;
+        border-radius: 3px 3px 0 0;
     }
 }
 
@@ -125,6 +137,7 @@ h2 {
     text-align: justify;
     grid-column: span 2;
     margin: 0;
+    border-radius: 3px;
     
     span {
         font-style: italic;
@@ -137,6 +150,7 @@ h2 {
     padding: 1.5em;
     text-align: center;
     grid-row: 50px;
+    border-radius: 3px;
     
     ul {
         padding:0;
@@ -246,7 +260,7 @@ h2 {
 }
 
 @media only screen and (max-width: 767px){
-    .main-container{
+    .main-container, .main-container-one-col{
         padding: 0;
         grid-template-columns: 1fr;
         grid-gap: 20px;
@@ -303,7 +317,7 @@ h2 {
 
 @media only screen and (min-width: 768px)
 and (max-width: 1023px){
-    .main-container {
+    .main-container, .main-container-one-col {
         grid-template-columns: 1fr;
         padding: 1em;
     }
