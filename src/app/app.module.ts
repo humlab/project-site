@@ -21,6 +21,7 @@ import { ShipsComponent } from './components/ships/ships.component';
 import { IacceptComponent } from './components/iaccept/iaccept.component';
 import { DigibonComponent } from './components/digibon/digibon.component';
 import { RaveComponent } from './components/rave/rave.component';
+import { UmanistaComponent } from './components/umanista/umanista.component';
 
 @NgModule({
   declarations: [
@@ -41,7 +42,8 @@ import { RaveComponent } from './components/rave/rave.component';
     ShipsComponent,
     IacceptComponent,
     DigibonComponent,
-    RaveComponent
+    RaveComponent,
+    UmanistaComponent
   ],
   imports: [
     BrowserModule,
