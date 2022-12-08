@@ -18,6 +18,7 @@ import { IacceptComponent } from './components/iaccept/iaccept.component';
 import { DigibonComponent } from './components/digibon/digibon.component';
 import { RaveComponent } from './components/rave/rave.component';
 import { UmanistaComponent } from './components/umanista/umanista.component';
+import { MelodyComponent } from './components/melody/melody.component';
 
 
 const routes: Routes = [
@@ -37,8 +38,10 @@ const routes: Routes = [
   { path: 'ships', component: ShipsComponent},
   { path: 'iaccept', component: IacceptComponent},
   { path: 'digibon', component: DigibonComponent},
-  { path: 'rave', component:RaveComponent},
-  {path: 'umanista', component:UmanistaComponent}
+  { path: 'rave', component: RaveComponent},
+  { path: 'umanista', component: UmanistaComponent},
+  { path: 'melody', component: MelodyComponent}
+
 ];
 
 @NgModule({

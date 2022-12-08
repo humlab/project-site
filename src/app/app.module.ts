@@ -22,6 +22,7 @@ import { IacceptComponent } from './components/iaccept/iaccept.component';
 import { DigibonComponent } from './components/digibon/digibon.component';
 import { RaveComponent } from './components/rave/rave.component';
 import { UmanistaComponent } from './components/umanista/umanista.component';
+import { MelodyComponent } from './components/melody/melody.component';
 
 @NgModule({
   declarations: [
@@ -43,7 +44,8 @@ import { UmanistaComponent } from './components/umanista/umanista.component';
     IacceptComponent,
     DigibonComponent,
     RaveComponent,
-    UmanistaComponent
+    UmanistaComponent,
+    MelodyComponent
   ],
   imports: [
     BrowserModule,
