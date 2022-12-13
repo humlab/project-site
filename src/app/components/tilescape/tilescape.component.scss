@@ -18,7 +18,7 @@
 }
 
 .project-header-container {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     
     h3 {
         font-size: 1.4em;
@@ -27,11 +27,12 @@
         text-decoration: none;
         text-align: center;
         margin-bottom: 0;
+        margin-top: 10px;
     }
 
     h4 {
         text-align: center;
-        margin: 0 0 -10px 0;
+        margin: 0 0 -5px 0;
         color: $primary-accent-color;
         text-decoration: none;
         font-weight: bold;
