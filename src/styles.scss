@@ -239,10 +239,9 @@ h2 {
 }
 
 .sub-header {
-    margin-bottom: 1.5em;
     font-weight: bold;
     text-align: center;
-    margin: 1em;
+    margin: 0.6em 0 1em 0;
 }
 
 .videoframe {
@@ -288,6 +287,10 @@ h2 {
         margin-bottom: 0;
         
     }
+    
+    .tile {
+        margin-bottom: 1em;
+    }
 
     .logo-project {
         width: 70%;
@@ -331,11 +334,21 @@ and (max-width: 1023px){
     .sub-header {
         margin-bottom: 0;
     }
+
+    .tile {
+        margin-bottom: 1em;
+    }
+
+    
 }
 
 @media only screen and (min-width: 1023px)
 and (max-width: 1430px){
         .people {
         grid-template-columns: 1fr;
-    }   
+    }
+
+    .tile {
+        margin-bottom: 1em;
+    }
 }

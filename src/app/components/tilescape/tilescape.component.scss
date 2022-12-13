@@ -2,7 +2,7 @@
 
 #main-grid-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 300px);
+    grid-template-columns: repeat(auto-fill, 240px);
     grid-gap: 40px;
     justify-content: center;
     padding: 0 2em 0 2em;
@@ -21,7 +21,7 @@
     margin-bottom: 20px;
     
     h3 {
-        font-size: 1.6em;
+        font-size: 1.4em;
         color: #000;
         font-weight: bold;
         text-decoration: none;
@@ -35,6 +35,7 @@
         color: $primary-accent-color;
         text-decoration: none;
         font-weight: bold;
+        font-size: 1.1em;
     }
 }
 
@@ -44,13 +45,14 @@
     grid-template-columns: 1fr 1fr;
     grid-template-rows: max-content 1fr 1fr;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-    height: 300px;
+    height: 240px;
     transform: scale(1.0);
     animation-name: scale-ani-out;
     animation-duration: 0.1s;
     border-radius: 10px;
     padding: 0.9em;
     overflow: hidden;
+    background-color: white;
 }
 
 .project-grid-tile-4-pane {
@@ -66,6 +68,10 @@
     .screenshot-cover {
         opacity: 1;
     }
+}
+
+.tile {
+    font-size: 1.3em;
 }
 
 @keyframes scale-ani-in {
@@ -113,7 +119,7 @@
 }
 
 .huminfra {
-    background-color: $secondary-accent-color;
+    background-color: #0D7D5A;
 }
 
 .sweclarin {
