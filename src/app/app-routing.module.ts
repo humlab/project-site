@@ -21,6 +21,7 @@ import { UmanistaComponent } from './components/umanista/umanista.component';
 import { MelodyComponent } from './components/melody/melody.component';
 import { UtbPlagiatComponent } from './components/utb-plagiat/utb-plagiat.component';
 import { QueerAiComponent } from './components/queer-ai/queer-ai.component';
+import { DialecticalImaginariesComponent } from './components/dialectical-imaginaries/dialectical-imaginaries.component';
 
 
 const routes: Routes = [
@@ -44,7 +45,8 @@ const routes: Routes = [
   { path: 'umanista', component: UmanistaComponent},
   { path: 'melody', component: MelodyComponent},
   { path: 'plagiat', component: UtbPlagiatComponent},
-  { path: 'queer-ai', component: QueerAiComponent}
+  { path: 'queer-ai', component: QueerAiComponent},
+  { path: 'dialectical-imaginaries', component: DialecticalImaginariesComponent}
 
 ];
 

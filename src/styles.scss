@@ -144,18 +144,24 @@ h2 {
         color: $primary-accent-color;
     }
 
-    ul {
-        list-style-type: none;
-        margin: 0;
-        padding: 0;
-
-        a {
-            text-decoration: none;
-            color: $secondary-accent-color;
-        }
+    
+    a {
+        text-decoration: none;
+        color: $secondary-accent-color;
     }
+    
+    
 }
 
+.events {
+
+        ul {
+            margin: 0;
+            padding: 0;
+            list-style-type: none;
+        }
+            
+    }
 .box {
     color: #fff;
     padding: 1.5em;

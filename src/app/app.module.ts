@@ -25,6 +25,7 @@ import { UmanistaComponent } from './components/umanista/umanista.component';
 import { MelodyComponent } from './components/melody/melody.component';
 import { UtbPlagiatComponent } from './components/utb-plagiat/utb-plagiat.component';
 import { QueerAiComponent } from './components/queer-ai/queer-ai.component';
+import { DialecticalImaginariesComponent } from './components/dialectical-imaginaries/dialectical-imaginaries.component';
 
 @NgModule({
   declarations: [
@@ -49,7 +50,8 @@ import { QueerAiComponent } from './components/queer-ai/queer-ai.component';
     UmanistaComponent,
     MelodyComponent,
     UtbPlagiatComponent,
-    QueerAiComponent
+    QueerAiComponent,
+    DialecticalImaginariesComponent
   ],
   imports: [
     BrowserModule,
