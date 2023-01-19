@@ -72,7 +72,7 @@ h2 {
 
 .desc-text {
     padding: 1em 0 1em 0.8em;
-    font-size: 1.2em;
+    font-size: 1.1em;
     border-left: 4px $primary-accent-color solid;
     grid-column: span 2;
     margin: 0;
@@ -102,7 +102,6 @@ h2 {
     text-decoration: none;
     grid-column: span 2;
     letter-spacing: 1px;
-    //text-align: center;
     justify-self: left;
     border-radius: 3px;
 
@@ -143,6 +142,17 @@ h2 {
     span {
         font-style: italic;
         color: $primary-accent-color;
+    }
+
+    ul {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+
+        a {
+            text-decoration: none;
+            color: $secondary-accent-color;
+        }
     }
 }
 

@@ -23,6 +23,8 @@ import { DigibonComponent } from './components/digibon/digibon.component';
 import { RaveComponent } from './components/rave/rave.component';
 import { UmanistaComponent } from './components/umanista/umanista.component';
 import { MelodyComponent } from './components/melody/melody.component';
+import { UtbPlagiatComponent } from './components/utb-plagiat/utb-plagiat.component';
+import { QueerAiComponent } from './components/queer-ai/queer-ai.component';
 
 @NgModule({
   declarations: [
@@ -45,7 +47,9 @@ import { MelodyComponent } from './components/melody/melody.component';
     DigibonComponent,
     RaveComponent,
     UmanistaComponent,
-    MelodyComponent
+    MelodyComponent,
+    UtbPlagiatComponent,
+    QueerAiComponent
   ],
   imports: [
     BrowserModule,

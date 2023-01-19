@@ -27,7 +27,7 @@
  */
 
 #baseplate {
-    height: 100vh;
+    max-height: 100vh;
     overflow: auto;
     padding-left: 4vw;
     padding-right: 4vw;
@@ -39,7 +39,7 @@
     font-weight: bold;
     font-size: 1em;
     background-image: url("../assets/lines-left.svg"), url("../assets/lines-right.svg");
-    background-position: left, right;
+    background-position: 0 0, right;
     background-repeat: no-repeat;
 }
 

@@ -19,6 +19,8 @@ import { DigibonComponent } from './components/digibon/digibon.component';
 import { RaveComponent } from './components/rave/rave.component';
 import { UmanistaComponent } from './components/umanista/umanista.component';
 import { MelodyComponent } from './components/melody/melody.component';
+import { UtbPlagiatComponent } from './components/utb-plagiat/utb-plagiat.component';
+import { QueerAiComponent } from './components/queer-ai/queer-ai.component';
 
 
 const routes: Routes = [
@@ -40,7 +42,9 @@ const routes: Routes = [
   { path: 'digibon', component: DigibonComponent},
   { path: 'rave', component: RaveComponent},
   { path: 'umanista', component: UmanistaComponent},
-  { path: 'melody', component: MelodyComponent}
+  { path: 'melody', component: MelodyComponent},
+  { path: 'plagiat', component: UtbPlagiatComponent},
+  { path: 'queer-ai', component: QueerAiComponent}
 
 ];
 
