@@ -26,6 +26,8 @@ import { MelodyComponent } from './components/melody/melody.component';
 import { UtbPlagiatComponent } from './components/utb-plagiat/utb-plagiat.component';
 import { QueerAiComponent } from './components/queer-ai/queer-ai.component';
 import { DialecticalImaginariesComponent } from './components/dialectical-imaginaries/dialectical-imaginaries.component';
+import { GoingBeyondSearchComponent } from './components/going-beyond-search/going-beyond-search.component';
+import { TcoirComponent } from './components/tcoir/tcoir.component';
 
 @NgModule({
   declarations: [
@@ -51,7 +53,9 @@ import { DialecticalImaginariesComponent } from './components/dialectical-imagin
     MelodyComponent,
     UtbPlagiatComponent,
     QueerAiComponent,
-    DialecticalImaginariesComponent
+    DialecticalImaginariesComponent,
+    GoingBeyondSearchComponent,
+    TcoirComponent
   ],
   imports: [
     BrowserModule,

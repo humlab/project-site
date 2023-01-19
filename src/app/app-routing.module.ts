@@ -22,6 +22,8 @@ import { MelodyComponent } from './components/melody/melody.component';
 import { UtbPlagiatComponent } from './components/utb-plagiat/utb-plagiat.component';
 import { QueerAiComponent } from './components/queer-ai/queer-ai.component';
 import { DialecticalImaginariesComponent } from './components/dialectical-imaginaries/dialectical-imaginaries.component';
+import { GoingBeyondSearchComponent } from './components/going-beyond-search/going-beyond-search.component';
+import { TcoirComponent } from './components/tcoir/tcoir.component';
 
 
 const routes: Routes = [
@@ -46,7 +48,9 @@ const routes: Routes = [
   { path: 'melody', component: MelodyComponent},
   { path: 'plagiat', component: UtbPlagiatComponent},
   { path: 'queer-ai', component: QueerAiComponent},
-  { path: 'dialectical-imaginaries', component: DialecticalImaginariesComponent}
+  { path: 'dialectical-imaginaries', component: DialecticalImaginariesComponent},
+  { path: 'going-beyond-search', component: GoingBeyondSearchComponent},
+  { path: 'tcoir', component: TcoirComponent}
 
 ];
 
