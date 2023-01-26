@@ -8,7 +8,7 @@
 
       .cls-1, .cls-2, .cls-3, .cls-4 {
         fill: none;
-        opacity: .1;
+        opacity: .07;
         stroke-miterlimit: 10;
         stroke-width: 2px;
       }
