@@ -27,7 +27,7 @@
 }
 
 .main-container-one-col {
-    padding: 0 10em 0 10em;
+    padding: 0 14em 0 14em;
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-auto-flow: max-content;
@@ -83,12 +83,15 @@ h2 {
     }
     
     .sv {
-    font-size: 0.9em;
-    color: $secondary-accent-color;
-    font-style: italic;
-    font-weight: normal;
-
+        font-size: 0.9em;
+        color: $secondary-accent-color;
+        font-style: italic;
+        font-weight: normal;
     }
+}
+
+.desc-text a:hover {
+    text-decoration: underline;
 }
 
 .explore-button {
@@ -163,11 +166,12 @@ h2 {
             
     }
 .box {
-    color: #fff;
+    color: #f6f6f6;
     padding: 1.5em;
     text-align: center;
     grid-row: 50px;
     border-radius: 3px;
+    
     
     ul {
         padding:0;
@@ -222,6 +226,7 @@ h2 {
 
     img {
         width: 100%;
+        max-width: 400px;
     }
 }
 
@@ -229,8 +234,8 @@ h2 {
     grid-column: span 2;
     
     h3 {
-            color: #444444;
-        }
+        color: #444444;
+    }
     
     .financier-logo {
         display: flex;
@@ -267,6 +272,7 @@ h2 {
     iframe {
         width: 100%;
         height: 100%;
+        border: none;
     }
 }
 
@@ -277,7 +283,57 @@ h2 {
         width: 100%;
         height: 100%;
     }
+}
 
+.frameinteractive {
+    grid-column: span 2;
+    background-color: $box-background-color;
+    grid-column: span 2;
+    margin: 0;
+    border-radius: 3px;
+    
+    iframe {
+        width: 100%;
+        height: 300px;
+        border-radius: 3px 3px 0 0;
+        border: none;
+    }
+
+    p {
+        margin: 0;
+        padding: 0 1em 1em 1em;
+    }
+}
+
+.tags {
+    grid-column: span 2;
+    color: #444444;
+    padding-top: 0;
+    
+    .tag{
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+
+        span {
+            background-color: $primary-accent-color;
+            padding: 3px 17px;
+            border-radius: 30px;
+            color: #f6f6f6;
+            font-size: 0.9em;
+        }
+
+        span:nth-child(3n-1){
+            background-color: darken($primary-accent-color, 10%);
+        }
+
+        span:nth-child(3n){
+            background-color: lighten($primary-accent-color, 10%);
+        }
+    }
+    
 }
 
 @media only screen and (max-width: 767px){
@@ -338,6 +394,12 @@ h2 {
     .two-col-people {
         grid-template-columns: 1fr;
     }
+
+    .box {
+        grid-column: span 2;
+    }
+
+
 }
 
 @media only screen and (min-width: 768px)
@@ -354,17 +416,27 @@ and (max-width: 1023px){
     .tile {
         margin-bottom: 1em;
     }
-
     
+    .box {
+        grid-column: span 2;
+    }
 }
 
 @media only screen and (min-width: 1023px)
 and (max-width: 1430px){
-        .people {
+
+    .main-container-one-col {
+        padding: 1em;
+        grid-column: span 2;
+    }
+    
+    .people {
         grid-template-columns: 1fr;
     }
 
     .tile {
         margin-bottom: 1em;
     }
+
+    
 }
