@@ -29,6 +29,7 @@ import { DialecticalImaginariesComponent } from './components/dialectical-imagin
 import { GoingBeyondSearchComponent } from './components/going-beyond-search/going-beyond-search.component';
 import { TcoirComponent } from './components/tcoir/tcoir.component';
 import { SwedebComponent } from './components/swedeb/swedeb.component';
+import { APSComponent } from './components/aps/aps.component';
 
 @NgModule({
   declarations: [
@@ -57,7 +58,8 @@ import { SwedebComponent } from './components/swedeb/swedeb.component';
     DialecticalImaginariesComponent,
     GoingBeyondSearchComponent,
     TcoirComponent,
-    SwedebComponent
+    SwedebComponent,
+    APSComponent
   ],
   imports: [
     BrowserModule,

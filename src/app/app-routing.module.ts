@@ -25,6 +25,7 @@ import { DialecticalImaginariesComponent } from './components/dialectical-imagin
 import { GoingBeyondSearchComponent } from './components/going-beyond-search/going-beyond-search.component';
 import { TcoirComponent } from './components/tcoir/tcoir.component';
 import { SwedebComponent } from './components/swedeb/swedeb.component';
+import { APSComponent } from './components/aps/aps.component';
 
 
 const routes: Routes = [
@@ -52,8 +53,8 @@ const routes: Routes = [
   { path: 'dialectical-imaginaries', component: DialecticalImaginariesComponent},
   { path: 'going-beyond-search', component: GoingBeyondSearchComponent},
   { path: 'tcoir', component: TcoirComponent},
-  { path: 'swedeb', component: SwedebComponent}
-
+  { path: 'swedeb', component: SwedebComponent},
+  { path: 'aps', component: APSComponent}
 ];
 
 @NgModule({
