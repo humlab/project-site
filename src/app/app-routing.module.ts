@@ -26,7 +26,7 @@ import { GoingBeyondSearchComponent } from './components/going-beyond-search/goi
 import { TcoirComponent } from './components/tcoir/tcoir.component';
 import { SwedebComponent } from './components/swedeb/swedeb.component';
 import { APSComponent } from './components/aps/aps.component';
-
+import { HumlabXComponent } from './components/humlab-x/humlab-x.component';
 
 const routes: Routes = [
   { path: '', component: TilescapeComponent },
@@ -54,7 +54,8 @@ const routes: Routes = [
   { path: 'going-beyond-search', component: GoingBeyondSearchComponent},
   { path: 'tcoir', component: TcoirComponent},
   { path: 'swedeb', component: SwedebComponent},
-  { path: 'aps', component: APSComponent}
+  { path: 'aps', component: APSComponent},
+  { path: 'humlab-x', component: HumlabXComponent}
 ];
 
 @NgModule({

@@ -30,6 +30,7 @@ import { GoingBeyondSearchComponent } from './components/going-beyond-search/goi
 import { TcoirComponent } from './components/tcoir/tcoir.component';
 import { SwedebComponent } from './components/swedeb/swedeb.component';
 import { APSComponent } from './components/aps/aps.component';
+import { HumlabXComponent } from './components/humlab-x/humlab-x.component';
 
 @NgModule({
   declarations: [
@@ -59,7 +60,8 @@ import { APSComponent } from './components/aps/aps.component';
     GoingBeyondSearchComponent,
     TcoirComponent,
     SwedebComponent,
-    APSComponent
+    APSComponent,
+    HumlabXComponent
   ],
   imports: [
     BrowserModule,
