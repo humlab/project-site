@@ -12,7 +12,7 @@
 // canonical rewrites and the cache headers only exist there, so a plain server can only
 // prove the pages load.
 import { chromium } from 'playwright';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 
 const BASE = process.argv[2] || 'http://localhost:8080';
 const pages = readdirSync('dist').filter((f) => f.endsWith('.html') && f !== '404.html');
@@ -21,7 +21,10 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
 const page = await ctx.newPage();
 // Two viewports: the responsive rules and most of the visitors are on phones.
 const VIEWPORTS = [['desktop', 1280, 900], ['mobile', 390, 844]];
-let bad = 0;
+let bad = 0, allowed = 0;
+// The two embeds whose hosts answer X-Frame-Options: deny are known and not ours to fix
+// (README: Known issues), so they are counted but do not fail the gate. Everything else does.
+const ALLOWED = /demo\.humlab\.umu\.se|ikt\.humlab\.umu\.se/;
 const page_ = () => (page.url().split('/').pop() || 'index');
 
 const IGNORE_CONSOLE = [/compute-pressure/,];   // the YouTube player probes it; Chrome denies it cross-origin by default
@@ -29,6 +32,7 @@ page.on('console', (m) => {
   if (m.type() !== 'error') return;
   if (IGNORE_CONSOLE.some((re) => re.test(m.text()))) return;
   bad++;
+  if (ALLOWED.test(m.text())) allowed++;
   console.log(`CONSOLE ${page_()} ${m.text().slice(0, 160)}`);
 });
 page.on('requestfailed', (r) => {
@@ -36,6 +40,7 @@ page.on('requestfailed', (r) => {
   // server supports ranges (nginx sends 206), Chromium reports the cancel as a failure.
   if (r.failure()?.errorText === 'net::ERR_ABORTED' && r.resourceType() === 'media') return;
   bad++;
+  if (ALLOWED.test(r.url())) allowed++;
   console.log(`FAILED  ${page_()} ${r.url().slice(0, 110)} ${r.failure()?.errorText || ''}`);
 });
 page.on('response', (r) => { if (r.status() >= 400) { bad++; console.log(`HTTP ${r.status()} ${page_()} ${r.url().slice(0, 110)}`); } });
@@ -58,5 +63,7 @@ const four = await fetch(BASE + '/404.html');
 const isNginx = /nginx/.test(four.headers.get('server') || '');
 console.log(`404.html direct request -> ${four.status}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
 if (isNginx && four.status < 400) { bad++; console.log('  FAIL  the error page answers with a success status'); }
-console.log(`${pages.length} pages x ${VIEWPORTS.length} viewports against ${BASE}, ${bad} problem(s)`);
+console.log(`${pages.length} pages x ${VIEWPORTS.length} viewports against ${BASE}, ${bad} problem(s)` +
+  ` (${allowed} of them the two documented X-Frame-Options embeds)`);
 await browser.close();
+process.exit(bad - allowed ? 1 : 0);

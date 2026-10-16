@@ -64,21 +64,23 @@ sed -e 's|listen unix:/socket/nginx.sock;|listen 127.0.0.1:8099;|' \
 
 ```sh
 node build.mjs
-npm i -D playwright && npx playwright install chromium    # dev-only, not a dependency
+npm i --no-save --no-package-lock playwright && npx playwright install chromium
 node tools/smoke.mjs http://127.0.0.1:8099                # every page, two viewports
 node tools/links.mjs                                      # needs network
 ```
 
 `tools/smoke.mjs` loads every built page in headless Chromium and reports console errors,
 failed requests, non-200 responses, CSP violations, and whether `/404.html` stays non-200.
-Run it against nginx — against a bare static server it can only prove the pages load. Two
+It exits non-zero (the two `X-Frame-Options: deny` embeds below are counted but allowed), so
+it can gate a deploy. Against a bare static server it can only prove the pages load. Two
 reports are expected and are not our bug: `demo.humlab.umu.se` and `ikt.humlab.umu.se`
 answer `X-Frame-Options: deny`, so those two embeds are blank (see Known issues).
 
 `tools/links.mjs` requests every outbound link, because HTTP 200 is not proof of life:
 three of the project's own apps answered 200 with `Welcome to nginx!` and one with a
 254-byte empty page. Those are reported as `hollow` and it exits non-zero, so it can gate a
-deploy. A `timeout` from one container is not proof of death either (some hosts filter
+deploy, retrying a failure once before reporting it. A `timeout` from one container is not
+proof of death either (some hosts filter
 unusual clients) — check from somewhere else before deleting a link because of it.
 
 ## Adding or changing a project page
@@ -95,17 +97,35 @@ unusual clients) — check from somewhere else before deleting a link because of
 
 ## Deploy
 
-`dist/` is the entire artefact; `nginx.conf` is the server block
-(`/etc/nginx/conf.d/default.conf` in the stock nginx image — TLS, HTTP/2 and HSTS belong
-to the front proxy that hands it `unix:/socket/nginx.sock`).
+There are two ways to serve `dist/` and they are not interchangeable. nginx is what
+production uses.
+
+**nginx.** `nginx.conf` is the server block (`/etc/nginx/conf.d/default.conf` in the stock
+nginx image — TLS, HTTP/2 and HSTS belong to the front proxy that hands it
+`unix:/socket/nginx.sock`). The canonical URLs, the security headers, the cache map and the
+404 page live in that file: without it `/sead` is a 404 and there is no CSP.
 
 ```sh
-node build.mjs
+node build.mjs && node tools/links.mjs
 rsync -a --delete dist/ <host>:/usr/share/nginx/html/
 ```
 
-Keep `dist/` as the rsync source: pointing it at the repo root would ship `.git` (95 MB)
+Keep `dist/` as the rsync source: pointing it at the repo root would ship `.git` (118 MB)
 and `--delete` the rest of the web root.
+
+Before believing a deploy, check what the front proxy already sends. The current deployment
+adds `Referrer-Policy`, `nosniff`, `X-Frame-Options` and HSTS on its own, so this block can
+end up sending a second `Referrer-Policy` (last value wins). Keep one side, not two.
+
+**Locked-down container** (`deploy/`). A `scratch` image running busybox `httpd`, for a host
+that wants one process, no shell and no writes. It is not a smaller nginx: it cannot rewrite
+`/sead` to `/sead.html` and cannot send a single response header, so the canonical URLs, CSP
+and cache rules in this repo do not apply to it — you would be serving `.html` URLs with no
+headers at all. Only use it behind something that does those jobs.
+
+```sh
+deploy/run.sh        # node build.mjs, then build + start the container on 127.0.0.1:9712
+```
 
 ## Deliberate choices, each learned from a bug
 
@@ -133,22 +153,31 @@ and `--delete` the rest of the web root.
 * Two embeds cannot render anywhere: `demo.humlab.umu.se/seadimagesphere/` (infravis-sead)
   and `ikt.humlab.umu.se/RAVE/Video/VR-vid.mp4` (rave) send `X-Frame-Options: deny`. Host
   the media or link out instead of framing.
-* `enida`, `staden` and `yrkesrum` `.humlab.umu.se` have no working TLS, so their Explore
-  buttons are `http://` on purpose (`HTTP_ONLY` in `build.mjs`).
 * The seven clearly Swedish pages set `lang="sv"`. Mixed ones (`staden` ~0.65 Swedish,
   `rave`, `westac`, `linguistic-landscape`, `digitalamodeller`, `queer-ai`) still inherit
   `lang="en"` with `span.sv` blocks, which is correct only if those spans all carry `lang`.
 * `/ships` is reachable but not linked: its front-page tile was already commented out
-  before the migration. Either finish the copy or delete the page.
+  before the migration (and pointed at an image that no longer exists). Either finish the
+  copy or delete the page.
+* `/melody` lost its "Upptäck Melodys hemsida ▶" button in the same pass: on the old site it
+  was `href=""`, i.e. it reloaded the page. Say the word and it can go to the umu.se page
+  that /melody already links.
+* `/enida` says "Read more about the project" and links newnatures.org, which redirects to a
+  Greenhouse Book Talks page. The old link was a 404 path on the same domain; someone who
+  knows the project should either name the right URL or drop the sentence.
 * Contrast: white on `--accent-2` (#c95100) sits at ~4.4:1, and the `.infravis` tag label
   is white on a yellow-red gradient. Public-sector WCAG wants 4.5:1 for body text.
+* `https://sweclarin.se/` (linked from /visp) answers with an **expired certificate**, so a
+  browser refuses it. That is their server to fix — keep the link, chase the renewal, and
+  drop the link only if it stays broken. `tools/links.mjs` reports it as
+  `unreachable (CERT_HAS_EXPIRED)`.
 * The footer still uses the Twitter bird for `x.com/humlab`.
 * The `.mp4` on /visp has no captions (`<track>`), relevant under the Accessibility Act.
-* 58 MB of images, and almost all of it is far bigger than it is displayed: 87% of the
-  bytes render at <= 480 CSS px, only 1.4 MB at > 800 px (`/tmp/imgbudget.md` has the per-file
-  table). In place without touching HTML, `pngquant --quality=80-` + `jpegoptim --max=78`
-  measured 59.98 MB -> 25.46 MB on a copy of the tree; WebP q80 would be 7.5 MB but needs
-  `<picture>` and therefore HTML changes.
+* 23 MB of images (down from 59 MB: `pngquant --quality=80-` + `jpegoptim --max=78`, applied
+  in place, nothing resized). Most of what is left is still larger than it is drawn: 87% of
+  the bytes used to render at <= 480 CSS px and only 1.4 MB at > 800 px, so resizing to 2x
+  display width would save several more MB — at the cost of images you cannot zoom into.
+  WebP q80 measured 7.5 MB, but every page would need `<picture>` with a fallback.
 * Four "Explore application" buttons were removed because the apps behind them are gone:
   /digibon (empty 254-byte shell), /enida, /staden and /yrkesrum (all three now answer the
   nginx default page). The project pages still describe the work and link their umu.se

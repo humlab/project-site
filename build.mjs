@@ -58,7 +58,6 @@ const fill = (name, vars) => Object.entries(vars).reduce(
 const built = new Map();
 for (const route of pages) {
   const body = src(join('pages', `${route}.html`))
-    .replace(/<!--[\s\S]*?-->/g, '')            // keep notes in the source, ship none
     // "/sead" -> "sead.html": relative links, so dist/ works from any root
     .replace(/href="\/([\w-]+)"/g, (m, r) => (routes.has(r) ? `href="${r}.html"` : m))
     .trim();
@@ -69,19 +68,28 @@ for (const route of pages) {
     ? decode(heading[1].replace(/<br\s*\/?>/gi, ' – ').replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim()
     : route;
   const isIndex = route === 'index';
-  const html = fill('head.html', {
+  let html = (fill('head.html', {
     '{{title}}': esc(isIndex ? 'Humlab Showcase' : `${text} – Humlab Showcase`),
     '{{description}}': esc(isIndex ? SITE_DESC : `${text} – ${SITE_DESC}`),
     '{{ogUrl}}': isIndex ? `${ORIGIN}/` : `${ORIGIN}/${route}`,
     '{{origin}}': ORIGIN,
     '{{lang}}': SWEDISH.has(route) ? 'sv' : 'en',
     '{{route}}': route,
-  }) + src('partials/header.html') + '\n' + body + '\n' + src('partials/footer.html');
+  }) + src('partials/header.html') + '\n' + body + '\n' + src('partials/footer.html'))
+    .replace(/<!--[\s\S]*?-->/g, '');            // keep notes in the source, ship none
   // A 404 is rendered for the requested URL, so relative refs would resolve against a
   // directory that has no files in it (/deep/typo -> /deep/styles.css).
-  built.set(`${route}.html`, route === '404'
-    ? html.replace(/(src|href)="(?!\/|#|[a-zA-Z]+:)/g, (m, a) => `${a}="/`)
-    : html);
+  if (route === '404') {
+    // Served for whatever was requested, so relative refs would resolve against a
+    // directory with nothing in it (/deep/typo -> /deep/styles.css), and a canonical
+    // would point crawlers at a URL that answers 404.
+    html = html
+      .replace(/\b(src|href|poster|data-src)="(?!\/|#|[a-zA-Z]+:)/g, '$1="/')
+      .replace(/\bsrcset="(?!\/|#|[a-zA-Z]+:)/g, 'srcset="/')
+      .replace(/<link rel="canonical"[^>]*>\n?/, '')
+      .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${ORIGIN}/">`);
+  }
+  built.set(`${route}.html`, html);
 }
 
 // ---------- checks ----------
@@ -132,8 +140,9 @@ function* scan(where, html) {
     if (/target="_blank"/i.test(tag) && !/rel="[^"]*noopener/i.test(tag))
       yield `${where}: target=_blank without rel=noopener: ${tag.slice(0, 70)}`;
   }
-  // A '<' that starts neither a tag, a comment, a doctype nor a CDATA section is markup
-  // the browser will reinterpret; copy should say &lt;.
+  // A lone '<' in copy (x < 5, <3) is markup the browser will reinterpret; copy must say
+  // &lt;. It cannot catch `a<b and c>`: that is a syntactically valid tag as far as HTML
+  // is concerned, and no amount of checking here will tell it apart from one.
   const stripped = html.replace(/<[^>]*>/g, '').replace(/&[a-zA-Z#0-9]+;/g, '');
   const stray = stripped.match(/<[^>]*$/m);
   if (stray) yield `${where}: raw "<" in text (use &lt;): "${stripped.slice(Math.max(0, stray.index - 25), stray.index + 25).trim()}"`;
@@ -153,7 +162,7 @@ for (const [, url] of styles.matchAll(/url\(['"]?([^'")]+)['"]?\)/g)) {
   if (!assets.includes(url.replace(/^\.\//, ''))) problems.push(`src/styles.css: url(${url}) is not in src/assets`);
 }
 for (const [, img] of src('partials/head.html').matchAll(/property="og:image" content="([^"]+)"/g)) {
-  if (!assets.includes(img.replace(`${ORIGIN}/`, ''))) problems.push(`src/partials/head.html: og:image ${img} is not in src/assets`);
+  if (!assets.includes(img.replace('{{origin}}', ORIGIN).replace(`${ORIGIN}/`, ''))) problems.push(`src/partials/head.html: og:image ${img} is not in src/assets`);
 }
 
 const refs = new Set(([...built.values()].join(' ') + ' ' + styles).match(/assets\/[^\s"')?#]+/g) || []);

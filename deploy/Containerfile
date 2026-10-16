@@ -1,0 +1,20 @@
+# Hardened static hosting for the showcase site.
+# Build context must be the repo (it contains dist/, produced by `node build.mjs`):
+#   podman build -f deploy/Containerfile -t localhost/showcase_static .
+# Or just run deploy/run.sh, which builds first.
+
+# NOTE: busybox httpd cannot rewrite URLs or send response headers, so this image serves
+# only /sead.html-style paths and no CSP/cache headers. Production uses nginx.conf; see
+# "Deploy" in README for which story is which.
+
+# Fetch a statically linked busybox (musl build, no libc needed in final image)
+FROM busybox:1.37-musl AS bin
+
+FROM scratch
+
+COPY --from=bin /bin/busybox /bin/busybox
+COPY dist/ /www/
+
+USER 65534:65534
+
+ENTRYPOINT ["/bin/busybox", "httpd", "-f", "-v", "-p", "8080", "-h", "/www"]

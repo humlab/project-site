@@ -44,7 +44,7 @@ const check = async (href) => {
     if (/^2\d\d$/.test(out) && (HOLLOW.some((re) => re.test(body)) || !/<title[^>]*>[^<]/i.test(body)))
       out = 'hollow';
   } catch (e) {
-    out = e.name === 'AbortError' ? 'timeout' : `dns/refused`;
+    out = e.name === 'AbortError' ? 'timeout' : `unreachable (${e.cause?.code || e.cause?.message || e.message})`;
   }
   clearTimeout(timer);
   status.set(href, out);
@@ -53,6 +53,15 @@ const check = async (href) => {
 
 const urls = [...new Set(rows.map((r) => r.href))];
 for (let i = 0; i < urls.length; i += 8) await Promise.all(urls.slice(i, i + 8).map(check));
+
+// A single failed request from one container is not a dead link (see README): retry the
+// failures serially before reporting them.
+for (const href of [...status].filter(([, v]) => !/^(2|3)\d\d$/.test(v)).map(([k]) => k)) {
+  await new Promise((r) => setTimeout(r, 1500));
+  status.delete(href);
+  const again = await check(href);
+  if (/^(2|3)\d\d$/.test(again)) console.log(`recovered on retry: ${href}`);
+}
 
 const dead = rows.filter((r) => !/^(2|3)\d\d$/.test(status.get(r.href)));
 for (const r of dead) console.log(`${status.get(r.href).padEnd(11)} ${r.slot.padEnd(6)} ${r.page.padEnd(22)} ${r.href}  ("${r.text}")`);
