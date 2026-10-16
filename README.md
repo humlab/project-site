@@ -16,7 +16,10 @@ node build.mjs        # writes dist/, and validates everything below
 `src/partials/{head,header,footer}.html`, copies `src/assets` and `src/styles.css`, and
 **fails without writing dist/** if a page has:
 
-* a missing or empty `src`/`href`, a directory where a file belongs, or a `http://https://` URL
+* a missing or empty `src`/`href`/`srcset`/`poster` (any quoting style, any attribute case),
+  a directory where a file belongs, a `http://https://` URL, or a scheme with no host
+* a raw `<` in copy (write `&lt;`), which a browser would turn into a tag
+* `index.html` or `404.html` missing — a green build with no front page is possible
 * an `http://` link to a host that is not in `HTTP_ONLY` (hosts with no working TLS)
 * an `<img>` without `alt`, a `target="_blank"` without `rel="noopener"`
 * attributes glued together or duplicated (e.g. two `class=`), unbalanced tags
@@ -26,6 +29,16 @@ Warnings that need a human: unused assets (with size), images without `width`/`h
 and leftover template copy such as "Insert text here".
 
 `<title>`/`og:` text comes from each page's `h2` (a `<br>` inside it becomes " – ").
+`<html lang>` comes from a `SWEDISH` set in `build.mjs`; `node tools/lang.mjs` prints how
+Swedish each page's text is so the set can be re-derived when pages change.
+
+Fonts are self-hosted (`src/assets/fonts`, latin subset): the site makes no request to any
+third party, so no visitor IP leaves the server and the typography survives Google being
+down or blocked. Re-add a `fonts.googleapis.com` `<link>` and CSP entry only if you prefer not to.
+
+What the checker does *not* do: tag balance is a count, so a `<p>` misnested inside another
+element that the browser repairs differently is out of scope, and `a<b and c>` in copy is
+indistinguishable from markup — that is why raw `<` is a failure.
 
 ## Preview locally
 
@@ -114,10 +127,20 @@ and `--delete` the rest of the web root.
   the media or link out instead of framing.
 * `enida`, `staden` and `yrkesrum` `.humlab.umu.se` have no working TLS, so their Explore
   buttons are `http://` on purpose (`HTTP_ONLY` in `build.mjs`).
-* Seven pages are mostly Swedish but inherit `<html lang="en">`; only `span.sv` blocks are
-  marked. Screen readers read Swedish with an English voice until those pages set `lang`.
+* The seven clearly Swedish pages set `lang="sv"`. Mixed ones (`staden` ~0.65 Swedish,
+  `rave`, `westac`, `linguistic-landscape`, `digitalamodeller`, `queer-ai`) still inherit
+  `lang="en"` with `span.sv` blocks, which is correct only if those spans all carry `lang`.
+* `/ships` is reachable but not linked: its front-page tile was already commented out
+  before the migration. Either finish the copy or delete the page.
 * Contrast: white on `--accent-2` (#c95100) sits at ~4.4:1, and the `.infravis` tag label
   is white on a yellow-red gradient. Public-sector WCAG wants 4.5:1 for body text.
 * The footer still uses the Twitter bird for `x.com/humlab`.
 * The `.mp4` on /visp has no captions (`<track>`), relevant under the Accessibility Act.
-* 58 MB of screenshots: a WebP/`srcset` pass is the next real perf win.
+* 58 MB of images, and almost all of it is far bigger than it is displayed: 87% of the
+  bytes render at <= 480 CSS px, only 1.4 MB at > 800 px (`/tmp/imgbudget.md` has the per-file
+  table). In place without touching HTML, `pngquant --quality=80-` + `jpegoptim --max=78`
+  measured 59.98 MB -> 25.46 MB on a copy of the tree; WebP q80 would be 7.5 MB but needs
+  `<picture>` and therefore HTML changes.
+* Some "Explore application" buttons point at Humlab servers that are now off. Dead
+  outbound links are worse than no button: check each project's link before the next
+  deploy and drop the button (and its `<a>`) when the service is gone.

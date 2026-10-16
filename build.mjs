@@ -11,11 +11,18 @@ const ORIGIN = 'https://showcase.humlab.umu.se';
 const SITE_DESC = "Humlab at Umeå University's showcase of projects that are ongoing and have been completed.";
 const PLACEHOLDERS = ['Insert text here', 'Image text', 'Add names of', 'Lorem ipsum'];
 // Tags that must balance; used to catch markup a browser would otherwise repair silently.
-const NEEDS_CLOSING = ['div', 'section', 'main', 'p', 'ul', 'li', 'a', 'table', 'tr', 'td', 'video', 'iframe'];
+const NEEDS_CLOSING = ['div', 'section', 'article', 'main', 'p', 'ul', 'ol', 'li', 'a',
+  'table', 'tr', 'td', 'video', 'iframe', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
 // Hosts that answer on http but have no working TLS; every other link must be https.
 const HTTP_ONLY = ['enida.humlab.umu.se', 'staden.humlab.umu.se', 'yrkesrum.humlab.umu.se',
   'ships.ddb.umu.se', 'digitalhumanities.lv'];
 const httpAllowed = (host) => HTTP_ONLY.some((h) => host === h || host.endsWith(`.${h}`));
+// Pages written predominantly in Swedish (see tools/lang.mjs for how this was measured).
+// Screen readers pick the pronunciation from html lang; a wrong one reads Swedish with an
+// English voice. Blocks inside English pages use <span class="sv" lang="sv">.
+const SWEDISH = new Set([
+  'aps', 'dialectical-imaginaries', 'digibon', 'melody', 'umanista', 'utopia', 'yrkesrum',
+]);
 
 const problems = [], warnings = [];
 const src = (p) => read(join(SRC, p), 'utf8');
@@ -30,6 +37,9 @@ const assets = [];
 })(join(SRC, 'assets'));
 
 const pages = readdirSync(join(SRC, 'pages')).filter((f) => f.endsWith('.html')).map((f) => f.slice(0, -'.html'.length));
+// Without these the site is broken at / and every 404, and the checks below would stay green.
+for (const required of ['index', '404'])
+  if (!pages.includes(required)) problems.push(`src/pages/${required}.html is missing`);
 const routes = new Set(pages);
 const distFiles = new Set([...assets, 'styles.css', 'favicon.ico', ...pages.map((r) => `${r}.html`)]);
 
@@ -62,23 +72,48 @@ for (const route of pages) {
     '{{title}}': esc(isIndex ? 'Humlab Showcase' : `${text} – Humlab Showcase`),
     '{{description}}': esc(isIndex ? SITE_DESC : `${text} – ${SITE_DESC}`),
     '{{ogUrl}}': isIndex ? `${ORIGIN}/` : `${ORIGIN}/${route}`,
+    '{{origin}}': ORIGIN,
+    '{{lang}}': SWEDISH.has(route) ? 'sv' : 'en',
     '{{route}}': route,
   }) + src('partials/header.html') + '\n' + body + '\n' + src('partials/footer.html');
-  built.set(`${route}.html`, html);
+  // A 404 is rendered for the requested URL, so relative refs would resolve against a
+  // directory that has no files in it (/deep/typo -> /deep/styles.css).
+  built.set(`${route}.html`, route === '404'
+    ? html.replace(/(src|href)="(?!\/|#|[a-zA-Z]+:)/g, (m, a) => `${a}="/`)
+    : html);
 }
 
 // ---------- checks ----------
+const attrRefs = (tag) =>
+  // srcset holds a comma list of "url 2x" pairs; <image> is a legacy alias of <img>.
+  [...tag.matchAll(/\b(?:href|src|poster|data-src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s">]+))/gi)]
+    .map((m) => m[1] ?? m[2] ?? m[3] ?? '')
+    .concat([...tag.matchAll(/\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)]
+      .flatMap((m) => (m[1] ?? m[2]).split(',').map((part) => part.trim().split(/\s+/)[0])));
+
 function* scan(where, html) {
-  for (const [, attr, ref] of html.matchAll(/(src|href)\s*=\s*"([^"]*)"/g)) {
-    if (ref === '') { yield `${where}: empty ${attr}`; continue; }
-    if (/^http:\/\/https?:/.test(ref)) { yield `${where}: malformed link ${ref}`; continue; }
-    if (/^(https?:|mailto:|data:|#)/.test(ref)) {
-      if (/^http:\/\//.test(ref) && !httpAllowed(new URL(ref).hostname))
-        yield `${where}: plain http link ${ref}`;
-      continue;
+  html = html.replace(/<image(?=[\s>])/gi, '<img');
+  for (const [tag] of html.matchAll(/<[a-zA-Z][^>]*>/g)) {
+    for (const ref of attrRefs(tag)) {
+      const attr = /srcset/i.test(tag) ? 'srcset' : 'link';
+      if (ref === '') { yield `${where}: empty src/href`; continue; }
+      if (/^http:\/\/https?:/.test(ref)) { yield `${where}: malformed link ${ref}`; continue; }
+      if (/^https?:\/\/[/"]?$/i.test(ref)) { yield `${where}: link with a scheme and no host: "${ref}"`; continue; }
+      if (/^(https?:|mailto:|data:|#|\/)/.test(ref)) {
+        if (/^http:\/\//.test(ref)) {
+          let host = '';
+          try { host = new URL(ref).hostname; } catch { yield `${where}: unparseable link ${ref}`; continue; }
+          if (!httpAllowed(host)) yield `${where}: plain http link ${ref}`;
+        }
+        if (ref.startsWith('/')) {
+          const clean = ref.split('#')[0].split('?')[0].slice(1);
+          if (clean && !distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
+        }
+        continue;
+      }
+      const clean = join(ref.split('#')[0].split('?')[0]).replace(/^\.\//, '');
+      if (!distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
     }
-    const clean = join(ref.split('#')[0].split('?')[0]).replace(/^\.\//, '');
-    if (!distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
   }
   for (const [tag] of html.matchAll(/<[a-zA-Z][^>]*>/g)) {
     // A '"' that does not follow '=' closed the previous value, so an attribute name
@@ -92,11 +127,17 @@ function* scan(where, html) {
     if (/^<img\b/i.test(tag)) {
       if (!/\balt=/i.test(tag)) yield `${where}: <img> without alt: ${tag.slice(0, 70)}`;
       if (!/\bwidth=/i.test(tag))
-        warnings.push(`<img> without width/height: ${(tag.match(/src="([^"]*)"/i) || [])[1] || tag.slice(0, 50)}`);
+        warnings.push(`<img> without width/height: ${((tag.match(/src="([^"]*)"/i) || [])[1] || tag.slice(0, 50)).replace(/^\//, '')}`);
     }
     if (/target="_blank"/i.test(tag) && !/rel="[^"]*noopener/i.test(tag))
       yield `${where}: target=_blank without rel=noopener: ${tag.slice(0, 70)}`;
   }
+  // A '<' that starts neither a tag, a comment, a doctype nor a CDATA section is markup
+  // the browser will reinterpret; copy should say &lt;.
+  const stripped = html.replace(/<[^>]*>/g, '').replace(/&[a-zA-Z#0-9]+;/g, '');
+  const stray = stripped.match(/<[^>]*$/m);
+  if (stray) yield `${where}: raw "<" in text (use &lt;): "${stripped.slice(Math.max(0, stray.index - 25), stray.index + 25).trim()}"`;
+
   for (const tag of NEEDS_CLOSING) {
     const open = (html.match(new RegExp(`<${tag}(?=[\\s>])`, 'gi')) || []).length;
     const close = (html.match(new RegExp(`</${tag}>`, 'gi')) || []).length;

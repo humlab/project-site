@@ -19,10 +19,18 @@ const pages = readdirSync('dist').filter((f) => f.endsWith('.html') && f !== '40
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
+// Two viewports: the responsive rules and most of the visitors are on phones.
+const VIEWPORTS = [['desktop', 1280, 900], ['mobile', 390, 844]];
 let bad = 0;
 const page_ = () => (page.url().split('/').pop() || 'index');
 
-page.on('console', (m) => m.type() === 'error' && (bad++, console.log(`CONSOLE ${page_()} ${m.text().slice(0, 160)}`)));
+const IGNORE_CONSOLE = [/compute-pressure/,];   // the YouTube player probes it; Chrome denies it cross-origin by default
+page.on('console', (m) => {
+  if (m.type() !== 'error') return;
+  if (IGNORE_CONSOLE.some((re) => re.test(m.text()))) return;
+  bad++;
+  console.log(`CONSOLE ${page_()} ${m.text().slice(0, 160)}`);
+});
 page.on('requestfailed', (r) => {
   // A <video preload="metadata"> that gets its moov box cancels the range request; the
   // server supports ranges (nginx sends 206), Chromium reports the cancel as a failure.
@@ -32,13 +40,16 @@ page.on('requestfailed', (r) => {
 });
 page.on('response', (r) => { if (r.status() >= 400) { bad++; console.log(`HTTP ${r.status()} ${page_()} ${r.url().slice(0, 110)}`); } });
 
-for (const file of pages) {
-  try {
-    await page.goto(`${BASE}/${file}`, { waitUntil: 'load' });
-    await page.waitForTimeout(200);   // let embeds and late requests report
-  } catch (e) {
-    bad++;
-    console.log(`GOTO    ${file} ${e.message.split('\n')[0]}`);
+for (const [label, width, height] of VIEWPORTS) {
+  await page.setViewportSize({ width, height });
+  for (const file of pages) {
+    try {
+      await page.goto(`${BASE}/${file}`, { waitUntil: 'load' });
+      await page.waitForTimeout(200);   // let embeds and late requests report
+    } catch (e) {
+      bad++;
+      console.log(`GOTO ${label}  ${file} ${e.message.split('\n')[0]}`);
+    }
   }
 }
 // nginx canonicalises /404.html -> /404 -> 404; a plain static server has no such rule,
@@ -47,5 +58,5 @@ const four = await fetch(BASE + '/404.html');
 const isNginx = /nginx/.test(four.headers.get('server') || '');
 console.log(`404.html direct request -> ${four.status}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
 if (isNginx && four.status < 400) { bad++; console.log('  FAIL  the error page answers with a success status'); }
-console.log(`${pages.length} pages checked against ${BASE}, ${bad} problem(s)`);
+console.log(`${pages.length} pages x ${VIEWPORTS.length} viewports against ${BASE}, ${bad} problem(s)`);
 await browser.close();

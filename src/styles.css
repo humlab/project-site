@@ -35,7 +35,9 @@ h6 { font-size: 16px; }
 hr { height: 1px; border-width: 0; }
 img, video { max-width: 100%; }
 /* With width+height attributes present this is what keeps the aspect ratio: the
-   attributes act as a ratio hint, the CSS width stays in charge. */
+   attributes act as a ratio hint and the CSS (or grid track) width stays in charge.
+   Without it a presentational height="196" beats max-width:100% and a tile header can
+   eat the whole 240px tile. */
 img[width][height] { height: auto; }
 iframe { border: none; }
 
@@ -53,6 +55,25 @@ iframe { border: none; }
   font-family: 'WendyOne-Regular';
   src: url('assets/WendyOne-Regular.ttf');
   font-display: swap;
+}
+
+/* Prompt and Italianno are self-hosted (latin subset, same files Google was serving): a
+   public-sector page should not leak every visitor's IP to fonts.googleapis.com, and the
+   typography should not depend on a third party being up. */
+@font-face {
+  font-family: 'Prompt';
+  src: url('assets/fonts/prompt-400-latin.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Prompt';
+  src: url('assets/fonts/prompt-700-latin.woff2') format('woff2');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Italianno';
+  src: url('assets/fonts/italianno-latin.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
 }
 
 h1 { font-family: var(--headline-font); }
@@ -105,7 +126,6 @@ footer ul li { display: inline-block; padding: 10px 10px 0 10px; }
   padding: 0 14em 0 14em;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-auto-flow: max-content;
   grid-gap: 30px;
 }
 
@@ -198,7 +218,6 @@ footer ul li { display: inline-block; padding: 10px 10px 0 10px; }
   color: #f6f6f6;
   padding: 1.5em;
   text-align: center;
-  grid-row: 50px;
   border-radius: 3px;
 }
 .box ul { padding: 0; margin: 0; list-style-type: none; }
@@ -332,7 +351,7 @@ footer ul li { display: inline-block; padding: 10px 10px 0 10px; }
   animation-name: scale-ani-in;
   animation-duration: 0.1s;
 }
-.project-grid-tile:hover .screenshot-cover { opacity: 1; }
+.project-grid-tile:hover .screenshot-cover { opacity: 1; }   /* the tile itself dims the shot to 0.8 */
 
 .tile { font-size: 1.3em; }
 
