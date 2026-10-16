@@ -14,8 +14,9 @@ const PLACEHOLDERS = ['Insert text here', 'Image text', 'Add names of', 'Lorem i
 const NEEDS_CLOSING = ['div', 'section', 'article', 'main', 'p', 'ul', 'ol', 'li', 'a',
   'table', 'tr', 'td', 'video', 'iframe', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
 // Hosts that answer on http but have no working TLS; every other link must be https.
-const HTTP_ONLY = ['enida.humlab.umu.se', 'staden.humlab.umu.se', 'yrkesrum.humlab.umu.se',
-  'ships.ddb.umu.se', 'digitalhumanities.lv'];
+// (enida/staden/yrkesrum were here until their apps were switched off and their Explore
+// buttons removed — see the note in README.)
+const HTTP_ONLY = ['ships.ddb.umu.se', 'digitalhumanities.lv'];
 const httpAllowed = (host) => HTTP_ONLY.some((h) => host === h || host.endsWith(`.${h}`));
 // Pages written predominantly in Swedish (see tools/lang.mjs for how this was measured).
 // Screen readers pick the pronunciation from html lang; a wrong one reads Swedish with an

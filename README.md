@@ -63,15 +63,23 @@ sed -e 's|listen unix:/socket/nginx.sock;|listen 127.0.0.1:8099;|' \
 ## Checking a change
 
 ```sh
+node build.mjs
 npm i -D playwright && npx playwright install chromium    # dev-only, not a dependency
-node tools/smoke.mjs http://127.0.0.1:8099
+node tools/smoke.mjs http://127.0.0.1:8099                # every page, two viewports
+node tools/links.mjs                                      # needs network
 ```
 
-It loads every built page in headless Chromium and reports console errors, failed
-requests, non-200 responses, CSP violations, and whether `/404.html` stays non-200. Run
-it against nginx — against a bare static server it can only prove the pages load. Two
+`tools/smoke.mjs` loads every built page in headless Chromium and reports console errors,
+failed requests, non-200 responses, CSP violations, and whether `/404.html` stays non-200.
+Run it against nginx — against a bare static server it can only prove the pages load. Two
 reports are expected and are not our bug: `demo.humlab.umu.se` and `ikt.humlab.umu.se`
 answer `X-Frame-Options: deny`, so those two embeds are blank (see Known issues).
+
+`tools/links.mjs` requests every outbound link, because HTTP 200 is not proof of life:
+three of the project's own apps answered 200 with `Welcome to nginx!` and one with a
+254-byte empty page. Those are reported as `hollow` and it exits non-zero, so it can gate a
+deploy. A `timeout` from one container is not proof of death either (some hosts filter
+unusual clients) — check from somewhere else before deleting a link because of it.
 
 ## Adding or changing a project page
 
@@ -141,6 +149,8 @@ and `--delete` the rest of the web root.
   table). In place without touching HTML, `pngquant --quality=80-` + `jpegoptim --max=78`
   measured 59.98 MB -> 25.46 MB on a copy of the tree; WebP q80 would be 7.5 MB but needs
   `<picture>` and therefore HTML changes.
-* Some "Explore application" buttons point at Humlab servers that are now off. Dead
-  outbound links are worse than no button: check each project's link before the next
-  deploy and drop the button (and its `<a>`) when the service is gone.
+* Four "Explore application" buttons were removed because the apps behind them are gone:
+  /digibon (empty 254-byte shell), /enida, /staden and /yrkesrum (all three now answer the
+  nginx default page). The project pages still describe the work and link their umu.se
+  pages. If a service is brought back, add the button again — see the note above.
+  `/sead` (browser.sead.se) and the other buttons were checked and are live apps.
