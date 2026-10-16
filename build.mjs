@@ -25,7 +25,7 @@ const SWEDISH = new Set([
   'aps', 'dialectical-imaginaries', 'digibon', 'melody', 'umanista', 'utopia', 'yrkesrum',
 ]);
 
-const problems = [], warnings = [];
+const problems = [], warnings = [], unsized = [];
 const src = (p) => read(join(SRC, p), 'utf8');
 
 // ---------- what dist/ will contain ----------
@@ -127,8 +127,7 @@ function* scan(where, html) {
     if (dup.length) yield `${where}: duplicate ${dup[0]} attribute in ${tag.slice(0, 70)}`;
     if (/^<img\b/i.test(tag)) {
       if (!/\balt=/i.test(tag)) yield `${where}: <img> without alt: ${tag.slice(0, 70)}`;
-      if (!/\bwidth=/i.test(tag))
-        warnings.push(`<img> without width/height: ${((tag.match(/src="([^"]*)"/i) || [])[1] || tag.slice(0, 50)).replace(/^\//, '')}`);
+      if (!/\bwidth=/i.test(tag)) unsized.push((tag.match(/src="([^"]*)"/i) || [])[1] || tag.slice(0, 50));
     }
     if (/target="_blank"/i.test(tag) && !/rel="[^"]*noopener/i.test(tag))
       yield `${where}: target=_blank without rel=noopener: ${tag.slice(0, 70)}`;
@@ -164,6 +163,14 @@ for (const a of assets) {
 }
 for (const [where, html] of built)
   for (const text of PLACEHOLDERS) if (html.includes(text)) warnings.push(`${where}: unfinished copy ("${text}")`);
+
+// One line, not one per image: the front-page tiles (inside a fixed 240px box) and the
+// header/footer logos (constrained by max-height) are unsized on purpose — width/height
+// attributes on those fight the CSS that sizes them. Anything new that shows up here is
+// a content image that should carry its dimensions.
+const unsizedFiles = [...new Set(unsized.map((u) => u.replace(/^\//, '')))];
+if (unsizedFiles.length)
+  warnings.push(`${unsizedFiles.length} images without width/height, e.g. ${unsizedFiles.slice(0, 3).join(', ')}`);
 
 // ---------- report, then write only when clean ----------
 console.log(`${pages.length} pages, ${assets.length} assets`);
