@@ -1,0 +1,51 @@
+// Loads every built page in headless Chromium and reports console errors, failed
+// requests, non-200 responses and CSP violations.
+//
+// Dev-only: needs playwright, which is deliberately NOT a project dependency:
+//   npm i -D playwright && playwright install chromium
+//
+//   node build.mjs
+//   <start nginx with this repo's server block, see README>
+//   node tools/smoke.mjs http://127.0.0.1:8099
+//
+// Run it against nginx (see README) rather than a bare static server: the CSP, the
+// canonical rewrites and the cache headers only exist there, so a plain server can only
+// prove the pages load.
+import { chromium } from 'playwright';
+import { readFileSync, readdirSync } from 'node:fs';
+
+const BASE = process.argv[2] || 'http://localhost:8080';
+const pages = readdirSync('dist').filter((f) => f.endsWith('.html') && f !== '404.html');
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+const page = await ctx.newPage();
+let bad = 0;
+const page_ = () => (page.url().split('/').pop() || 'index');
+
+page.on('console', (m) => m.type() === 'error' && (bad++, console.log(`CONSOLE ${page_()} ${m.text().slice(0, 160)}`)));
+page.on('requestfailed', (r) => {
+  // A <video preload="metadata"> that gets its moov box cancels the range request; the
+  // server supports ranges (nginx sends 206), Chromium reports the cancel as a failure.
+  if (r.failure()?.errorText === 'net::ERR_ABORTED' && r.resourceType() === 'media') return;
+  bad++;
+  console.log(`FAILED  ${page_()} ${r.url().slice(0, 110)} ${r.failure()?.errorText || ''}`);
+});
+page.on('response', (r) => { if (r.status() >= 400) { bad++; console.log(`HTTP ${r.status()} ${page_()} ${r.url().slice(0, 110)}`); } });
+
+for (const file of pages) {
+  try {
+    await page.goto(`${BASE}/${file}`, { waitUntil: 'load' });
+    await page.waitForTimeout(200);   // let embeds and late requests report
+  } catch (e) {
+    bad++;
+    console.log(`GOTO    ${file} ${e.message.split('\n')[0]}`);
+  }
+}
+// nginx canonicalises /404.html -> /404 -> 404; a plain static server has no such rule,
+// so only hold the server to it when it claims to be the production one.
+const four = await fetch(BASE + '/404.html');
+const isNginx = /nginx/.test(four.headers.get('server') || '');
+console.log(`404.html direct request -> ${four.status}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
+if (isNginx && four.status < 400) { bad++; console.log('  FAIL  the error page answers with a success status'); }
+console.log(`${pages.length} pages checked against ${BASE}, ${bad} problem(s)`);
+await browser.close();
