@@ -5,7 +5,7 @@
 // previously built dist/ untouched on disk. The one exception is the webp encode step: it
 // runs after the checks and before the pages are written, so if cwebp dies halfway you get
 // an assets-only dist/ and a non-zero exit. Nothing is published on an exit code of 1.
-import { readFileSync as read, writeFileSync as write, mkdirSync, rmSync, cpSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync as read, writeFileSync as write, mkdirSync, rmSync, cpSync, readdirSync, statSync, existsSync, openSync, readSync, closeSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 
@@ -137,33 +137,98 @@ const WEBP_ARGS = ['-q', '80', '-m', '6', '-mt'];   // q80: measured All-PSNR 39
                                                     // the current 70 images, see README
 const styles = src('styles.css');
 const refs = new Set(([...built.values()].join(' ') + ' ' + styles).match(/assets\/[^\s"')?#]+/g) || []);
-const webp = new Map();
-let cwebp = true;
+const fullTo = new Map();        // ref -> full-size .webp (project pages, og previews)
+const tileTo = new Map();        // ref -> thumbnail .webp (front-page tiles)
+const jobs = [];                 // cwebp runs: { from, to, args, thumb }
+const counted = new Set();         // a shared source is two jobs but its bytes count once
+let thumbCount = 0, cwebp = true;
 try { execFileSync('cwebp', ['-version'], { stdio: 'ignore' }); } catch { cwebp = false; }
+
+// A front-page tile paints its picture into a box at most ~252 CSS px wide, and did so with
+// the 2830x1306 original: 18x the pixels the screen can show, ~4.7 MB downloaded for a grid
+// of thumbnails. Tiles therefore get a variant capped at THUMB_EDGE on the long edge - >=3x
+// that box, so it stays sharp on a 3x phone - and the <img> keeps pointing at the full
+// raster, which is what a browser without webp gets, exactly as before.
+const THUMB_EDGE = 768;
+
+// PNG/JPEG size out of the header, because cwebp -resize upscales happily and the point of
+// this is to never write pixels the source does not have. No dependency, no new tool.
+function dimsOf(file) {
+  const fd = openSync(file, 'r'), b = Buffer.alloc(64 * 1024);
+  let n = 0;
+  try { n = readSync(fd, b, 0, b.length, 0); } finally { closeSync(fd); }
+  if (n > 24 && b[0] === 0x89 && b[1] === 0x50) return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+  if (n > 8 && b[0] === 0xff && b[1] === 0xd8)
+    for (let i = 2; i + 9 < n; ) {
+      if (b[i] !== 0xff) break;
+      const m = b[i + 1];
+      if (m === 0xff || m === 0x01 || (m >= 0xd0 && m <= 0xd9)) { i += 2; continue; }
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc)
+        return { w: b.readUInt16BE(i + 7), h: b.readUInt16BE(i + 5) };
+      i += 2 + b.readUInt16BE(i + 2);
+    }
+  return null;
+}
+
 if (cwebp) {
-  // Only pictures an <img> actually draws: `refs` also contains the og:image and the
-  // <video poster>, and a .webp beside those is dead weight no browser can ask for (they
-  // are requested by URL by the share-preview crawler and by the player, neither of which
-  // reads a <picture>), plus it skews the PSNR line the build reports.
-  const drawn = new Set();
+  // Only pictures an <img> actually draws, and whether *only* tiles draw them: `refs` also
+  // contains the og:image and the <video poster>, and a .webp beside those is dead weight no
+  // browser can ask for (they are requested by URL by the share-preview crawler and by the
+  // player, neither of which reads a <picture>), plus it skews the PSNR line below.
+  const drawn = new Map();
   for (const html of built.values())
     for (const tag of html.matchAll(/<img\b[^>]*>/gi)) {
       const m = tag[0].match(/\bsrc="([^"]+)"/i);
-      if (m) drawn.add(m[1].replace(/^\//, ''));
+      if (!m) continue;
+      const ref = m[1].replace(/^\//, '');
+      // .screenshot-cover marks the tile pictures and nothing else in this site. A picture
+      // can be drawn both ways - the tile thumbnail and the full screenshot on its own page -
+      // and then it needs both variants, because the choice belongs to the <img>, not the file.
+      const tile = /class="[^"]*\bscreenshot-cover\b/.test(tag[0]);
+      const seen = drawn.get(ref) || { tile: false, page: false };
+      drawn.set(ref, { tile: seen.tile || tile, page: seen.page || !tile });
     }
   for (const ref of refs) {
-    if (!drawn.has(ref)) continue;
-    if (!/\.(png|jpe?g)$/i.test(ref)) continue;
+    const how = drawn.get(ref);
+    if (!how || !/\.(png|jpe?g)$/i.test(ref)) continue;
     const file = join(SRC, ref);
     if (!existsSync(file) || statSync(file).size < WEBP_MIN) continue;
-    webp.set(ref, `${ref}.webp`);
-    distFiles.add(`${ref}.webp`);        // so the srcset refs below validate like any ref
+    const d = how.tile ? dimsOf(file) : null;
+    const long = d ? Math.max(d.w, d.h) : 0;
+    if (how.page) {
+      jobs.push({ from: file, to: `${ref}.webp`, args: WEBP_ARGS });
+      fullTo.set(ref, `${ref}.webp`);
+      distFiles.add(`${ref}.webp`);
+    }
+    if (!how.tile) continue;
+    if (long <= THUMB_EDGE) {
+      // Already small enough to be a thumbnail: one .webp serves both uses. When no page
+      // asked for it, that file still has to be encoded - pointing srcset at a .webp that
+      // nothing wrote is a broken image, which is exactly what the build's own check said.
+      if (fullTo.has(ref)) { tileTo.set(ref, fullTo.get(ref)); continue; }
+      jobs.push({ from: file, to: `${ref}.webp`, args: WEBP_ARGS });
+      fullTo.set(ref, `${ref}.webp`);
+      tileTo.set(ref, `${ref}.webp`);
+      distFiles.add(`${ref}.webp`);
+      continue;
+    }
+    const k = THUMB_EDGE / long, to = `${ref}.thumb.webp`;
+    jobs.push({ from: file, to, thumb: true, args: [...WEBP_ARGS, '-resize',
+              String(Math.round(d.w * k)), String(Math.round(d.h * k))] });
+    tileTo.set(ref, to);
+    distFiles.add(to);              // srcset refs validate like any ref
+    thumbCount++;
   }
   for (const [name, html] of built) {
     built.set(name, html.replace(/<img\b[^>]*>/gi, (tag) => {
       const m = tag.match(/\bsrc="([^"]+)"/i);
-      if (!m || !webp.has(m[1].replace(/^\//, ''))) return tag;
-      return `<picture><source type="image/webp" srcset="${m[1]}.webp">${tag}</picture>`;
+      if (!m) return tag;
+      const ref = m[1].replace(/^\//, '');
+      // Tiles ask for their thumbnail even when the same file also has a full-size .webp
+      // for the project page: 4.7 MB of the front page's weight was that mix-up.
+      const to = (/class="[^"]*\bscreenshot-cover\b/.test(tag) ? tileTo : fullTo).get(ref);
+      if (!to) return tag;
+      return `<picture><source type="image/webp" srcset="${to}">${tag}</picture>`;
     }));
   }
 }
@@ -267,27 +332,28 @@ cpSync(join(SRC, 'styles.css'), join(OUT, 'styles.css'));
 cpSync(join(SRC, 'favicon.ico'), join(OUT, 'favicon.ico'));
 cpSync(join(SRC, 'assets'), join(OUT, 'assets'), { recursive: true });
 let webpFailed = 0, webpFrom = 0, webpTo = 0, worst = [999, ''];
-for (const [ref, out] of webp) {
-  const from = join(SRC, ref), to = join(OUT, out);
+for (const j of jobs) {
+  const from = j.from, out = j.to, to = join(OUT, out);
   mkdirSync(dirname(to), { recursive: true });
   // cwebp writes its whole per-file report (including the PSNR we want) to stderr, and it is
   // 15 lines per image, so both streams go into a pipe here rather than onto the terminal.
-  const r = spawnSync('cwebp', [...WEBP_ARGS, from, '-o', to], { encoding: 'utf8' });
+  const r = spawnSync('cwebp', [...j.args, from, '-o', to], { encoding: 'utf8' });   // j.args: a thumb adds -resize
   const m = `${r.stdout}${r.stderr}`.match(
     /Output:\s+(\d+) bytes\s+Y-U-V-All-PSNR\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+([\d.]+)/);
   if (r.status !== 0 || !existsSync(to)) {
     webpFailed++;
-    console.log(`  FAIL  cwebp could not encode ${ref}: ${(r.stderr || `exit ${r.status}`).trim().split('\n').pop()}`);
+    console.log(`  FAIL  cwebp could not encode ${out}: ${(r.stderr || `exit ${r.status}`).trim().split('\n').pop()}`);
     rmSync(to, { force: true });           // a truncated file would be picked over the png
     continue;
   }
-  webpFrom += statSync(from).size;
+  if (!counted.has(from)) { counted.add(from); webpFrom += statSync(from).size; }   // shared source = 2 jobs, 1 set of bytes
   webpTo += m ? Number(m[1]) : statSync(to).size;
-  if (m && Number(m[2]) < worst[0]) worst = [Number(m[2]), ref];
+  if (m && Number(m[2]) < worst[0]) worst = [Number(m[2]), out];
 }
 if (webpFailed) { console.log(`\n${webpFailed} webp encode failure(s); dist/ is incomplete.`); process.exit(1); }
-if (webp.size)
-  console.log(`  webp  ${webp.size} images: ${(webpFrom / 1048576).toFixed(1)} MB -> ${(webpTo / 1048576).toFixed(1)} MB, lowest All-PSNR ${worst[0]} dB (${worst[1]})`);
+if (jobs.length)
+  console.log(`  webp  ${jobs.length} images${thumbCount ? `, ${thumbCount} of them resized to <=${THUMB_EDGE}px for the tiles` : ''}: `
+    + `${(webpFrom / 1048576).toFixed(1)} MB -> ${(webpTo / 1048576).toFixed(1)} MB, lowest All-PSNR ${worst[0]} dB (${worst[1]})`);
 else if (!cwebp) console.log('  webp  cwebp not installed, shipping png/jpeg only (apt install webp)');
 
 for (const [name, html] of built) {

@@ -31,10 +31,11 @@ and leftover template copy such as "Insert text here".
 **WebP.** Every referenced raster over 20 kB also gets a `.webp` beside it in `dist/`
 (`cwebp -q 80 -m 6 -mt`) and its `<img>` is wrapped in
 `<picture><source type="image/webp" srcset="..."><img src="..."></picture>`: no JS, and
-`dist/` still opens from a directory or a `file://` path. Measured on this tree: 68 images,
-20.8 MB of png/jpeg down to 7.6 MB, lowest All-PSNR 39.2 dB
-(`assets/infravis-sead/bugs-treemap.png`), 7 of the 68 under 41 dB and none under 39;
-`dist/` is 31 MB on disk. Everything smaller, and every SVG, is left alone. The encodes
+`dist/` still opens from a directory or a `file://` path. Measured on this tree: 78 files,
+20.8 MB of png/jpeg down to 5.8 MB, lowest All-PSNR 39.1 dB
+(`assets/infravis-sead/seadbugs-screenshot.png` thumbnail), `dist/` is 29 MB on disk.
+Everything smaller, and every SVG, is left alone.
+The encodes
 are generated, never committed: a stale `.webp` in git beside a hand-replaced png shows
 every current browser the old picture. `cwebp` comes from the `webp` package
 (`apt install webp`); without it the build warns and ships png/jpeg only. The encode runs
@@ -43,6 +44,21 @@ partial file and exits 1 with an assets-only `dist/` — the one failure here th
 something on disk. `cwebp` reports the PSNR of each encode on stderr; the build reads it and
 prints the lowest one it produced, so a quality regression shows up at a build instead of
 being assumed.
+
+**Tile thumbnails.** The front page used to download 4.7 MB to paint a grid of boxes no
+wider than 252 CSS px: the "thumbnails" were the full screenshots, so the browser paid for
+6 megapixels per tile and threw most of them away — 18x over-sampled. Tiles (`<img>` with
+class `screenshot-cover`, which is them and nothing else in this site) therefore also get
+`<name>.thumb.webp`, `cwebp -resize`d so the long edge is at most 768 px (>=3x the largest
+tile box, so it stays sharp on a 3x phone). 1.14 MB now, same grid: measured in Chromium
+against the live site, mean difference per colour channel 3.7/255 over the 34 tiles — most
+of which is the server's libwebp encoding the same files a little differently — and the
+build's own check confirms every tile still paints its cell. 
+The choice belongs to the `<img>`, not to the file: `assets/visp/screenshot2.png` is both a
+tile thumbnail and some page's full screenshot, so it gets both `.webp` and `.thumb.webp`
+and the two `<picture>` elements point at different ones — hence 78 files from 68 images. An
+image already under 768 px gets a single `.webp` serving both uses, and one under the 20 kB
+floor gets none: the markup would cost more than the bytes it saves.
 
 A `<picture>` is a box, and a box between a grid and its image changes the layout.
 `#main-grid-container picture { display: contents }` is what keeps a tile's `<img>` the grid
@@ -180,7 +196,7 @@ or put a `Content-Type` on `.webp`, `.woff2`, `.mp4` and `.ico`: none are in its
 table, the Debian build does not read `/etc/mime.types` (the entries are in the file, the
 header is still absent), and `httpd.conf`'s `E:`/`A:` mime syntax is silently ignored, so
 those go out with no `Content-Type` at all. That is untidy rather than fatal, and it took a
-browser to establish it: Chromium 156 renders all 7 generated `.webp` and loads the font
+browser to establish it: Chromium 156 renders the `.webp` files on /visp and loads the font
 through a proxy adding `nosniff` with no `Content-Type` present, and still renders them when
 the response *lies* with `Content-Type: text/html`. What `nosniff` actually refuses is a
 mismatched script or stylesheet - and this site ships no scripts at all, while busybox types
