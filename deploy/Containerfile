@@ -23,10 +23,12 @@
 #        "run value as a CGI handler" and every request for that type then 404s; E:/A:
 #        forms are silently ignored). Those files go out with no Content-Type header,
 #        which browsers tolerate -- but a front proxy adding X-Content-Type-Options:
-#        nosniff would then block the fonts. That combination is not hypothetical: the live
-#        edge sends nosniff on every response today, so without help these four types are
-#        refused. deploy/proxy-showcase.conf is that help (measured: through it, .webp
-#        answers image/webp and .woff2 font/woff2, one Content-Type each, CSP intact).
+#        nosniff would then forbid the sniff. Measured in Chromium 156 and it does not
+#        block: webp renders and the font loads with no Content-Type at all, because
+#        nosniff's hard refusals are scripts and stylesheets and this image serves neither
+#        (no JS; .css is typed correctly). The typed proxy is still worth its eight lines -
+#        for clients that trust the header instead of sniffing, and so the bytes say what
+#        they are - but it is correctness, not an emergency. deploy/proxy-showcase.conf.
 # So: the security policy and canonical URLs in nginx.conf do not exist here — the front
 # proxy supplies them (deploy/proxy-showcase.conf), or serve dist/ with nginx.conf directly.
 # See README.

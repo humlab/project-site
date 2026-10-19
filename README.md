@@ -179,11 +179,16 @@ send any header (no CSP, no cache, no nosniff), serve a custom 404 page, gzip, k
 or put a `Content-Type` on `.webp`, `.woff2`, `.mp4` and `.ico`: none are in its built-in
 table, the Debian build does not read `/etc/mime.types` (the entries are in the file, the
 header is still absent), and `httpd.conf`'s `E:`/`A:` mime syntax is silently ignored, so
-those go out with no `Content-Type` at all. Browsers sniff their way to a font or a video;
-a front proxy that adds `nosniff` forbids the sniff, and then the browser refuses them —
-including the generated `.webp`, which is why the `curl -I` above is in the deploy list.
-nginx knows every one of them from its own `mime.types`; busybox does not, and `nosniff` is
-already at the edge, so the types have to be handed over one way or the other.
+those go out with no `Content-Type` at all. That is untidy rather than fatal, and it took a
+browser to establish it: Chromium 156 renders all 7 generated `.webp` and loads the font
+through a proxy adding `nosniff` with no `Content-Type` present, and still renders them when
+the response *lies* with `Content-Type: text/html`. What `nosniff` actually refuses is a
+mismatched script or stylesheet - and this site ships no scripts at all, while busybox types
+`.css` correctly. So the types below are hygiene: they matter for clients that read the
+header instead of sniffing (a share bot deciding whether `og:image` is an image, `wget`,
+anything downstream that enforces strictly) and for not sending 7 MB of images out as
+anonymous bytes. One engine tested, headless; if a Firefox/WebKit check ever says otherwise,
+the proxy block below is what fixes it, not a format change.
 
 **This is the deployment in use**: the container serves bytes, the front proxy supplies what
 busybox cannot invent. `deploy/proxy-showcase.conf` is that vhost — the canonical rewrites,
