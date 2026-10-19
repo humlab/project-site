@@ -162,8 +162,13 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
 
 ## Known issues (pre-existing; the build warns so they are not forgotten)
 
-* `src/pages/ships.html` still contains scaffolding: "Insert text here" twice, two empty
-  image boxes, and a YouTube embed belonging to another project. It needs copy from Humlab.
+* `/ships` has no copy. What a visitor could read of the template is deleted (two "Insert
+  text here" paragraphs and two empty image boxes), which leaves a heading, an Explore
+  button and a video. It still needs words from Humlab; `build.mjs` no longer warns about
+  this page, and the placeholders stay in its `PLACEHOLDERS` list for the next one.
+  The video stays: it is SHiPS' own film. The copy that is in the wrong place is on
+  /digitalamodeller, which embeds the same video under the title "Swedish Historical
+  Population Samples (SHiPS)" — wrong name, and a second embedding of one video.
 * Two embeds could not render at all and were replaced. /rave's video is the good ending:
   `ikt.humlab.umu.se` answers `X-Frame-Options: deny`, but media loads are not governed by
   that header, so a `<video>` plays their file and the 70 MB stays on their server. The SEAD
