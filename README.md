@@ -71,10 +71,11 @@ node tools/links.mjs                                      # needs network
 
 `tools/smoke.mjs` loads every built page in headless Chromium and reports console errors,
 failed requests, non-200 responses, CSP violations, and whether `/404.html` stays non-200.
-It exits non-zero (the two `X-Frame-Options: deny` embeds below are counted but allowed), so
-it can gate a deploy. Against a bare static server it can only prove the pages load. Two
-reports are expected and are not our bug: `demo.humlab.umu.se` and `ikt.humlab.umu.se`
-answer `X-Frame-Options: deny`, so those two embeds are blank (see Known issues).
+It exits non-zero and can gate a deploy. Against a bare static server it can only prove the
+pages load. One report is tolerated: `ikt.humlab.umu.se`, whose mp4 `/rave` hotlinks, is not
+our server, so a failure there is counted but does not fail the gate. Anything else does —
+including an embed that passes CSP and is still blank because the other server answers
+`X-Frame-Options: deny`, which is the bug that started all this (see Known issues).
 
 `tools/links.mjs` requests every outbound link, because HTTP 200 is not proof of life:
 three of the project's own apps answered 200 with `Welcome to nginx!` and one with a
@@ -154,11 +155,14 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
 
 * `src/pages/ships.html` still contains scaffolding: "Insert text here" twice, two empty
   image boxes, and a YouTube embed belonging to another project. It needs copy from Humlab.
-* `demo.humlab.umu.se/seadimagesphere/` still cannot be embedded (it answers
-  `X-Frame-Options: deny`) and cannot be copied here (a p5.js bundle we do not have), so
-  /infravis-sead links out to it instead of showing an empty box. /rave's video is the same
-  story on `ikt.humlab.umu.se`, solved the other way: a `<video>` element, because media
-  loads are not governed by that header.
+* Two embeds could not render at all and were replaced. /rave's video is the good ending:
+  `ikt.humlab.umu.se` answers `X-Frame-Options: deny`, but media loads are not governed by
+  that header, so a `<video>` plays their file and the 70 MB stays on their server. The SEAD
+  image sphere on /infravis-sead had the worse ending: it is a p5.js bundle that exists only
+  on `demo.humlab.umu.se` (133-byte shell plus main.bundle.js), so it could be neither framed
+  nor copied; a link-out was tried, and then removed too, because the app root
+  `demo.humlab.umu.se/humlab-sead/` now 404s and the shell had nothing left to load. If the
+  app comes back, the button markup and its URL are in `git show e6eb379`.
 * The seven clearly Swedish pages set `lang="sv"`. Mixed ones (`staden` ~0.65 Swedish,
   `rave`, `westac`, `linguistic-landscape`, `digitalamodeller`, `queer-ai`) still inherit
   `lang="en"` with `span.sv` blocks, which is correct only if those spans all carry `lang`.

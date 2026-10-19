@@ -272,15 +272,11 @@ footer ul li { display: inline-block; padding: 10px 10px 0 10px; }
 .mov { grid-column: span 2; }
 .mov video { width: 100%; height: 100%; }
 
-.frameinteractive {
   grid-column: span 2;
   background-color: var(--box-bg);
   margin: 0;
   border-radius: 3px;
 }
-.frameinteractive iframe { width: 100%; height: 300px; border-radius: 3px 3px 0 0; }
-.frameinteractive .explore-button { display: inline-block; margin: 1em; }   /* grid-column/justify-self do nothing in this box */
-.frameinteractive p { margin: 0; padding: 0 1em 1em 1em; }
 
 .tags { grid-column: span 2; color: #444444; padding-top: 0; }
 .tag {
@@ -299,7 +295,6 @@ footer ul li { display: inline-block; padding: 10px 10px 0 10px; }
 }
 .tag span:nth-child(3n - 1) { background-color: var(--accent-dark); }
 .tag span:nth-child(3n) { background-color: var(--accent-hover); }
-
 
 /* --- front page tiles (only used inside #main-grid-container) --- */
 #main-grid-container {

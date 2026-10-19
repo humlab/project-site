@@ -22,9 +22,11 @@ const page = await ctx.newPage();
 // Two viewports: the responsive rules and most of the visitors are on phones.
 const VIEWPORTS = [['desktop', 1280, 900], ['mobile', 390, 844]];
 let bad = 0, allowed = 0;
-// The two embeds whose hosts answer X-Frame-Options: deny are known and not ours to fix
-// (README: Known issues), so they are counted but do not fail the gate. Everything else does.
-const ALLOWED = /demo\.humlab\.umu\.se|ikt\.humlab\.umu\.se/;
+// ikt.humlab.umu.se serves the /rave video we hotlink. It is not our server, so a hiccup
+// there is counted but must not fail a deploy. demo.humlab.umu.se used to be here too: the
+// SEAD image sphere frame answered X-Frame-Options: deny, and the link is gone now, so a
+// new embed that will not render has to fail this gate, as it should.
+const ALLOWED = /ikt\.humlab\.umu\.se/;
 const page_ = () => (page.url().split('/').pop() || 'index');
 
 const IGNORE_CONSOLE = [/compute-pressure/,];   // the YouTube player probes it; Chrome denies it cross-origin by default
@@ -64,6 +66,6 @@ const isNginx = /nginx/.test(four.headers.get('server') || '');
 console.log(`404.html direct request -> ${four.status}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
 if (isNginx && four.status < 400) { bad++; console.log('  FAIL  the error page answers with a success status'); }
 console.log(`${pages.length} pages x ${VIEWPORTS.length} viewports against ${BASE}, ${bad} problem(s)` +
-  ` (${allowed} of them the documented X-Frame-Options embeds)`);
+  ` (${allowed} of them the hotlinked /rave video host, which is not ours)`);
 await browser.close();
 process.exit(bad - allowed ? 1 : 0);
