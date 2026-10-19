@@ -152,7 +152,10 @@ footer img { max-width: 200px; }
 .logo-project {
   grid-column: span 2;
   justify-self: center;
-  width: 30%;
+  /* 60% of the left column, not the 30% the old wordmark needed: the new logotype
+     carries its slogan in small caps, and at 30% (about 165px) that text renders
+     around 7px tall. Only visp.html uses this class. */
+  width: 60%;
 }
 
 .desc-text {
