@@ -89,12 +89,21 @@
             </p>
 
             <h3 class="text-h3">See video:</h3>
-            <div class="videoframe ">
-                <iframe src="https://ikt.humlab.umu.se/RAVE/Video/VR-vid.mp4"
-                    title="IKT Humlab video player"
-                    allow="accelerometer; clipboard-write; encrypted-media; gyroscope;
-                    picture-in-picture" allowfullscreen>
-                </iframe>
+            <div class="videoframe">
+                <!-- Not an <iframe>: ikt.humlab.umu.se answers X-Frame-Options: deny, so the
+                     frame rendered an empty box in every browser. A media load is not
+                     governed by that header, so this plays the same file inline.
+                     Hotlinked, 70 MB on their side (1920x1080, 97 s). If it ever disappears
+                     or their server starts refusing hotlinks, transcode it
+                     (ffmpeg -i VR-vid.mp4 -vf scale=1280:-2 -crf 28 -movflags +faststart
+                     rave.mp4 -> 6 MB), drop it in src/assets/rave+c-rave/, use that path
+                     and drop the host from media-src in nginx.conf. -->
+                <video controls preload="metadata" playsinline
+                    src="https://ikt.humlab.umu.se/RAVE/Video/VR-vid.mp4"
+                    title="RAVE: virtual reality environment for stereotype awareness">
+                    <a href="https://ikt.humlab.umu.se/RAVE/Video/VR-vid.mp4" target="_blank"
+                       rel="noopener noreferrer">Watch the video (mp4, 70 MB)</a>
+                </video>
             </div>
         </div>
     </div>
