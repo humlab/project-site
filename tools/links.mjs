@@ -1,14 +1,19 @@
 // Checks every outbound link in dist/ with a real request and lists the dead ones.
 // Run: node build.mjs && node tools/links.mjs      (needs network)
 //
-// Exit code 1 if any link fails. A 200 is not the only pass:
-// some project hosts answer 200 with a placeholder ("Welcome to nginx!" — that is how
-// three Humlab apps that were shut down still look alive). Bodies are sniffed for those.
-// A `timeout`/`dns/refused` here can be this container's egress rather than the site:
-// re-check from somewhere else before deleting a link because of one.
+// Exit code 1 if any link fails. A 200 is not the only pass: some project hosts answer 200
+// with a placeholder page, so HTML bodies are sniffed for those (see HOLLOW). Two things a
+// 200 does NOT mean: see the media/content-type rule and the "app shell" rule below, both
+// learned from false alarms on this very site. A `timeout`/`unreachable` here can be this
+// container's egress rather than the site: re-check from somewhere else before deleting a
+// link because of one.
 import { readdirSync, readFileSync } from 'node:fs';
 
 const TIMEOUT = 15_000;
+// A host with a web server but no app behind it.
+const HOLLOW = [/Welcome to nginx!/i, /Apache2 Ubuntu Default Page/i, /Plesk/i,
+  /Domain is parked|domain name expired/i, /502 Bad Gateway|503 Service Unavailable|504 Gateway/i,
+  /<title>\s*(<\/title>|coming soon|under construction)\s*<\/title>/i];
 const rows = [];
 for (const f of readdirSync('dist').filter((n) => n.endsWith('.html'))) {
   const html = readFileSync(`dist/${f}`, 'utf8');
@@ -24,10 +29,6 @@ for (const f of readdirSync('dist').filter((n) => n.endsWith('.html'))) {
   }
 }
 
-// A host that still has a web server but no app answers 200 with one of these.
-const HOLLOW = [/Welcome to nginx!/i, /Apache2 Ubuntu Default Page/i, /Plesk/i,
-  /Domain is parked|domain name expired/i, /502 Bad Gateway|503 Service Unavailable|504 Gateway/i,
-  /<title>\s*(<\/title>|coming soon|under construction)\s*<\/title>/i];
 const status = new Map();
 const check = async (href) => {
   if (status.has(href)) return status.get(href);
@@ -39,10 +40,17 @@ const check = async (href) => {
     const res = await fetch(href, { signal: controller.signal, redirect: 'follow',
       headers: { 'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) showcase-link-check' } });
     out = String(res.status);
-    // 254 bytes with no <title> was digibon: a deployed-but-empty shell.
-    const body = await res.text();
-    if (/^2\d\d$/.test(out) && (HOLLOW.some((re) => re.test(body)) || !/<title[^>]*>[^<]/i.test(body)))
-      out = 'hollow';
+    const type = res.headers.get('content-type') || '';
+    // /rave links the mp4 it also plays: 200 is the whole test for a media file.
+    if (/^2\d\d$/.test(out) && type.includes('html')) {
+      const body = await res.text();
+      // digibon was a 254-byte shell with nothing in it. A page with no title but a script,
+      // canvas or img may simply be an app that paints itself (the SEAD image sphere is
+      // exactly that), so absence of a title alone is not evidence of a dead app.
+      const appLike = /<script\b[^>]*\bsrc=|<canvas\b|<img\b/i.test(body);
+      if (HOLLOW.some((re) => re.test(body)) || (!appLike && !/<title[^>]*>[^<]/i.test(body)))
+        out = 'hollow';
+    }
   } catch (e) {
     out = e.name === 'AbortError' ? 'timeout' : `unreachable (${e.cause?.code || e.cause?.message || e.message})`;
   }
