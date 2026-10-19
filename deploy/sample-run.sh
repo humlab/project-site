@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Build and run the showcase static site in a maximally locked-down container.
-# Requires: podman, cgroups v2 with delegation (default on Ubuntu/Debian rootless).
-# Run from the repo root: deploy/run.sh
+# The site itself is built inside the Containerfile (node + cwebp live in the build
+# stage), so this script needs only podman - it works the same on a laptop and a
+# build server, and is what a quadlet would do at `podman build` time.
+# Demo only - the real deployment runs quadlets, this script is for local testing.
+# Run from the repo root: deploy/sample-run.sh
 set -euo pipefail
 
 NAME=showcase-static
@@ -9,10 +12,6 @@ IMAGE=localhost/showcase_static
 PORT=9712
 
 cd "$(dirname "$0")/.."
-
-# dist/ is gitignored, so build it here; without this the image serves whatever stale
-# tree happened to be on disk, or fails on a fresh clone.
-node build.mjs || exit 1
 
 podman build -f deploy/Containerfile -t "$IMAGE" .
 

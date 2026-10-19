@@ -162,9 +162,13 @@ a hole where the picture is.
 Keep `dist/` as the rsync source: pointing it at the repo root would ship `.git` (118 MB)
 and `--delete` the rest of the web root.
 
-Before believing a deploy, check what the front proxy already sends. The current deployment
-adds `Referrer-Policy`, `nosniff`, `X-Frame-Options` and HSTS on its own, so this block can
-end up sending a second `Referrer-Policy` (last value wins). Keep one side, not two.
+Before believing a deploy, check what the front proxy already sends. Measured at the edge
+today (`curl -I https://showcase.humlab.umu.se/`, nginx 1.28 Ubuntu): `nosniff`,
+`X-Frame-Options: DENY`, `X-XSS-Protection`, `Referrer-Policy:
+no-referrer-when-downgrade` and HSTS, no CSP and no Cache-Control. So this block would send
+a second `Referrer-Policy` (last value wins) and a `X-Frame-Options` that disagrees with the
+CSP's `frame-ancestors`. Keep one side, not two: the proxy keeps the ones it has, the site
+block adds CSP and caching.
 
 **Locked-down container** (`deploy/`). A `scratch` image running busybox `httpd`: one
 process, no shell, read-only, 64 MB. `build.mjs` writes a second copy of every page as
@@ -178,11 +182,24 @@ header is still absent), and `httpd.conf`'s `E:`/`A:` mime syntax is silently ig
 those go out with no `Content-Type` at all. Browsers sniff their way to a font or a video;
 a front proxy that adds `nosniff` forbids the sniff, and then the browser refuses them —
 including the generated `.webp`, which is why the `curl -I` above is in the deploy list.
-nginx knows every one of them from its own `mime.types`, one more reason the nginx config —
-also the only place the security policy exists — is what should serve the site.
+nginx knows every one of them from its own `mime.types`; busybox does not, and `nosniff` is
+already at the edge, so the types have to be handed over one way or the other.
+
+**This is the deployment in use**: the container serves bytes, the front proxy supplies what
+busybox cannot invent. `deploy/proxy-showcase.conf` is that vhost — the canonical rewrites,
+the header list and four `Content-Type` overrides — tested against the running container:
+`.webp` → `image/webp`, `.woff2` → `font/woff2`, one `Content-Type` per response (an
+`add_header` without `proxy_hide_header` appends a second one, which is worse than none),
+CSP present on the 301s as well as the 200s, `Cache-Control` differing for html, css and
+assets. `deploy/proxy-headers.conf` is that header list, included at three levels because
+nginx inherits `add_header` per level and a location that sets one drops the inherited set —
+which is how CSP once disappeared from every `/assets/*` response here. What no proxy can
+give this container: a custom 404 page (visitors get busybox's), gzip, keep-alive, or
+Range-coalesced responses. For a host that is not quadlet-run, `nginx.conf` serves the same
+`dist/` with all of those and needs nothing in front but TLS.
 
 ```sh
-deploy/run.sh        # node build.mjs, then build + start the container on 127.0.0.1:9712
+deploy/sample-run.sh   # build + start the container on 127.0.0.1:9712 (site built inside the Containerfile)
 ```
 
 ## Deliberate choices, each learned from a bug

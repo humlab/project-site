@@ -1,0 +1,6 @@
+dist/
+node_modules/
+.git/
+tools/
+deploy/
+README.md
