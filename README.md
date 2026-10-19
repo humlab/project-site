@@ -190,7 +190,6 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
   browser refuses it. That is their server to fix — keep the link, chase the renewal, and
   drop the link only if it stays broken. `tools/links.mjs` reports it as
   `unreachable (CERT_HAS_EXPIRED)`.
-* The footer still uses the Twitter bird for `x.com/humlab`.
 * The `.mp4` on /visp has no captions (`<track>`), relevant under the Accessibility Act.
 * 23 MB of images (down from 59 MB: `pngquant --quality=80-` + `jpegoptim --max=78`, applied
   in place, nothing resized). Most of what is left is still larger than it is drawn: 87% of
