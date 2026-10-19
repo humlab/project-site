@@ -31,9 +31,9 @@ and leftover template copy such as "Insert text here".
 **WebP.** Every referenced raster over 20 kB also gets a `.webp` beside it in `dist/`
 (`cwebp -q 80 -m 6 -mt`) and its `<img>` is wrapped in
 `<picture><source type="image/webp" srcset="..."><img src="..."></picture>`: no JS, and
-`dist/` still opens from a directory or a `file://` path. Measured on this tree: 70 images,
-20.9 MB of png/jpeg down to 7.6 MB, lowest All-PSNR 39.2 dB
-(`assets/infravis-sead/bugs-treemap.png`), 7 of the 70 under 41 dB and none under 39;
+`dist/` still opens from a directory or a `file://` path. Measured on this tree: 68 images,
+20.8 MB of png/jpeg down to 7.6 MB, lowest All-PSNR 39.2 dB
+(`assets/infravis-sead/bugs-treemap.png`), 7 of the 68 under 41 dB and none under 39;
 `dist/` is 31 MB on disk. Everything smaller, and every SVG, is left alone. The encodes
 are generated, never committed: a stale `.webp` in git beside a hand-replaced png shows
 every current browser the old picture. `cwebp` comes from the `webp` package
@@ -222,7 +222,7 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
   on `demo.humlab.umu.se` (133-byte shell plus main.bundle.js), so it could be neither framed
   nor copied; a link-out was tried, and then removed too, because the app root
   `demo.humlab.umu.se/humlab-sead/` now 404s and the shell had nothing left to load. If the
-  app comes back, the button markup and its URL are in `git show e6eb379`.
+  app comes back, the button markup and its URL are in `git show 655aceb`.
 * The /rave poster is a frame grabbed at t=30 s. It shows the room, nobody objected, and it
   is not a chosen image. `src/pages/rave.html` carries the TODO; replacing
   `assets/rave+c-rave/rave-poster.jpg` under the same name is enough (60 kB, 1280x720).
