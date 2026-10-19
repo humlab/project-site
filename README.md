@@ -184,8 +184,11 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
   the bytes used to render at <= 480 CSS px and only 1.4 MB at > 800 px, so resizing to 2x
   display width would save several more MB — at the cost of images you cannot zoom into.
   WebP q80 measured 7.5 MB, but every page would need `<picture>` with a fallback.
-* Four "Explore application" buttons were removed because the apps behind them are gone:
-  /digibon (empty 254-byte shell), /enida, /staden and /yrkesrum (all three now answer the
-  nginx default page). The project pages still describe the work and link their umu.se
-  pages. If a service is brought back, add the button again — see the note above.
+* Three "Explore application" buttons were removed because the apps behind them are gone:
+  /enida, /staden and /yrkesrum (all three now answer the nginx default page with an empty
+  body). /digibon was removed in the same sweep and put back: its 254-byte page is a shell
+  embedding an ArcGIS Experience, i.e. a working map app whose HTML is thin on purpose —
+  the screenshot on our /digibon page is a clip of that same map. The project pages still
+  describe the work and link their umu.se pages. If a service is brought back, add the
+  button again — see the note above.
   `/sead` (browser.sead.se) and the other buttons were checked and are live apps.
