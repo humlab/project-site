@@ -50,7 +50,14 @@ FROM scratch
 
 COPY --from=bin /bin/busybox /bin/busybox
 COPY --from=build /src/dist/ /www/
+COPY deploy/passwd /etc/passwd
+COPY deploy/inetd.conf /etc/inetd.conf
 
-USER 65534:65534
+# No USER line: in rootless podman the container's root is the host service
+# user, which owns the socket directory. With --cap-drop=all there is no
+# setuid, so runtime user and inetd.conf's user field must match (root).
 
-ENTRYPOINT ["/bin/busybox", "httpd", "-f", "-v", "-p", "8080", "-h", "/www"]
+# inetd reads /etc/inetd.conf by default; bind is done once at startup, so the
+# unix socket in the mounted volume must be writable by the runtime user.
+# Override with: --entrypoint /bin/busybox <image> httpd -f -p 8080 -h /www
+ENTRYPOINT ["/bin/busybox", "inetd", "-f", "-e"]
