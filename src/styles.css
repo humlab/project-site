@@ -263,7 +263,14 @@ footer img { max-width: 200px; }
 }
 .financier-logo a { width: 200px; }
 .financier-logo span { width: 200px; }
-.financier-logo img { max-height: 100px; }
+/* contain, not the default fill: these images carry width/height attributes, which makes
+   their used width a specified value, and then max-height:100px clamps the height without
+   touching the width. Uppsala (1.05:1), Lund (0.79:1) and Kungliga biblioteket (0.95:1) all
+   ended up drawn inside a 200x100 box, i.e. about twice as wide as they are. With auto sizes
+   browsers apply the two maxima together and keep the ratio themselves - which is what the
+   site did before the attributes were added, and what this line gives back: the wide logos
+   are unaffected because their height at 200px was already under 100. */
+.financier-logo img { max-height: 100px; object-fit: contain; }
 .financier-logo p { color: #444444; font-size: 1.4rem; }
 
 .sub-header {
