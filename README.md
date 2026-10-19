@@ -117,11 +117,15 @@ Before believing a deploy, check what the front proxy already sends. The current
 adds `Referrer-Policy`, `nosniff`, `X-Frame-Options` and HSTS on its own, so this block can
 end up sending a second `Referrer-Policy` (last value wins). Keep one side, not two.
 
-**Locked-down container** (`deploy/`). A `scratch` image running busybox `httpd`, for a host
-that wants one process, no shell and no writes. It is not a smaller nginx: it cannot rewrite
-`/sead` to `/sead.html` and cannot send a single response header, so the canonical URLs, CSP
-and cache rules in this repo do not apply to it — you would be serving `.html` URLs with no
-headers at all. Only use it behind something that does those jobs.
+**Locked-down container** (`deploy/`). A `scratch` image running busybox `httpd`: one
+process, no shell, read-only, 64 MB. `build.mjs` writes a second copy of every page as
+`<route>/index.html` with root-absolute refs precisely so this server can answer `/sead`
+(it 302s to `/sead/` by itself and serves the index) — without that, the minimum container
+404s on every canonical URL. What it still cannot do, measured with the real 1.37 binary:
+send any header (no CSP, no cache, no nosniff), serve a custom 404 page, gzip, keep-alive,
+or learn that `.woff2`/`.mp4` have MIME types (no working `httpd.conf` syntax for it; they
+go out with no `Content-Type`). Browsers cope; a front proxy that adds `nosniff` would not.
+The nginx config is the only place the security policy exists.
 
 ```sh
 deploy/run.sh        # node build.mjs, then build + start the container on 127.0.0.1:9712

@@ -3,9 +3,23 @@
 #   podman build -f deploy/Containerfile -t localhost/showcase_static .
 # Or just run deploy/run.sh, which builds first.
 
-# NOTE: busybox httpd cannot rewrite URLs or send response headers, so this image serves
-# only /sead.html-style paths and no CSP/cache headers. Production uses nginx.conf; see
-# "Deploy" in README for which story is which.
+# What this server can and cannot do, measured with the same binary (busybox 1.37.0,
+# pulled from the image this file is based on) against this dist/:
+#   CAN  serve /sead -> 302 -> /sead/ -> the page: possible because build.mjs writes
+#        <route>/index.html with root-absolute refs next to the flat <route>.html.
+#        Without those, "minimum container" meant 404 on every canonical URL.
+#   CAN  index.html at /, Range requests (video seeking), dotfile hiding, 1 process, no shell.
+#   CANNOT  send any response header it does not invent: no CSP, no Cache-Control, no
+#        nosniff, no redirects other than its own directory 302s, no custom 404 page
+#        (404.html in the tree is never used), no gzip, no keep-alive (Connection: close).
+#   CANNOT  be told the MIME type for .woff2/.mp4/.ico: they are not in its built-in table
+#        and httpd.conf has no working mapping syntax (a bare "*.ext:value" line means
+#        "run value as a CGI handler" and every request for that type then 404s; E:/A:
+#        forms are silently ignored). Those files go out with no Content-Type header,
+#        which browsers tolerate -- but a front proxy adding X-Content-Type-Options:
+#        nosniff would then block the fonts. Check that combination before trusting it.
+# So: the security policy and canonical URLs in nginx.conf do not exist here. Either the
+# front proxy in front of this container supplies them, or use nginx.conf. See README.
 
 # Fetch a statically linked busybox (musl build, no libc needed in final image)
 FROM busybox:1.37-musl AS bin
