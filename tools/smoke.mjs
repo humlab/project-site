@@ -1,5 +1,5 @@
 // Loads every built page in headless Chromium and reports console errors, failed
-// requests, non-200 responses and CSP violations.
+// requests, non-200 responses, CSP violations and broken geometry.
 //
 // Dev-only: needs playwright, which is deliberately NOT a project dependency:
 //   npm i -D playwright && playwright install chromium
@@ -30,6 +30,58 @@ const ALLOWED = /ikt\.humlab\.umu\.se/;
 const page_ = () => (page.url().split('/').pop() || 'index');
 
 const IGNORE_CONSOLE = [/compute-pressure/,];   // the YouTube player probes it; Chrome denies it cross-origin by default
+
+// Console-clean is not the same as correct: the two bugs that reached a human this month
+// (webp <picture> collapsing every front-page tile, funder logos drawn 2x too wide) were
+// invisible in the console and in the HTML, and obvious in one number each. So measure the
+// boxes too. Only images that are finished or laid out are judged - a loading="lazy" shot
+// below the fold has not been requested yet and must not read as broken, and awaiting its
+// decode would wait forever for exactly that reason.
+const geometry = () => page.evaluate(async () => {
+  const out = [], R = (e) => e.getBoundingClientRect();
+  // loading="lazy" shots below the fold have not been requested yet; without this scroll the
+  // coverage figure below would measure empty space on a perfectly fine page.
+  scrollTo(0, document.body.scrollHeight);
+  await new Promise(r => setTimeout(r, 450));
+  scrollTo(0, 0);
+  await document.fonts.ready.catch(() => {});
+  if (![...document.fonts].length || !document.fonts.check('100 16px Prompt'))
+    out.push('body font Prompt did not load');
+  for (const t of document.querySelectorAll('.project-grid-tile')) {
+    const { width: w, height: h } = R(t);
+    const n = t.querySelector('h3')?.textContent.trim().slice(0, 20) ?? '?';
+    if (h < 120 || w < 60) out.push(`tile "${n}" collapsed to ${Math.round(w)}x${Math.round(h)}`);
+  }
+  const tiles = [...document.querySelectorAll('.project-grid-tile')];
+  if (tiles.length > 5) {
+    // Tripwire, not a measurement: how much of each tile's box its images actually paint.
+    // It is a sloppy area (rowspans paint over neighbours, cover crops, a >1 value is
+    // normal) but it separates the failure that happened - a wrapper element becoming the
+    // grid item, so the images stop filling their cells and the mosaic turns into postage
+    // stamps in a frame - by a factor of three: median 0.54/0.66 when the grid is right,
+    // 0.15/0.18 with that one CSS declaration removed. Tile heights do NOT change, which is
+    // why this is not a height check.
+    const cov = tiles.map(t => {
+      const tb = R(t);
+      if (!tb.width || !tb.height) return 1;
+      let a = 0;
+      for (const i of t.querySelectorAll('img')) { const x = R(i); a += x.width * x.height; }
+      return a / (tb.width * tb.height);
+    }).sort((a, b) => a - b);
+    const med = cov[cov.length >> 1];
+    if (med < 0.3) out.push(`tile images paint only ${(med * 100).toFixed(0)}% of each tile (median) - something between .project-grid-tile and its <img> is the grid item`);
+  }
+  for (const i of document.querySelectorAll('img')) {
+    const f = (i.currentSrc || i.src).split('/').pop(), bb = R(i);
+    if (i.complete && i.naturalWidth === 0) { out.push(`broken image ${f}`); continue; }
+    if (!i.naturalWidth || bb.height === 0) continue;
+    const nat = i.naturalWidth / i.naturalHeight, ren = bb.width / bb.height;
+    const fit = getComputedStyle(i).objectFit;
+    if (fit === 'fill' && Math.abs(ren / nat - 1) > 0.06)
+      out.push(`${f} drawn ${ren.toFixed(2)} vs natural ${nat.toFixed(2)}`);
+  }
+  return out;
+});
 page.on('console', (m) => {
   if (m.type() !== 'error') return;
   if (IGNORE_CONSOLE.some((re) => re.test(m.text()))) return;
@@ -61,6 +113,7 @@ for (const [label, width, height] of VIEWPORTS) {
     try {
       await page.goto(`${BASE}/${file}`, { waitUntil: 'load' });
       await page.waitForTimeout(200);   // let embeds and late requests report
+      for (const g of await geometry()) { bad++; console.log(`LAYOUT ${label} ${file} ${g}`); }
     } catch (e) {
       bad++;
       console.log(`GOTO ${label}  ${file} ${e.message.split('\n')[0]}`);
