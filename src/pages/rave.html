@@ -98,6 +98,9 @@
                      (ffmpeg -i VR-vid.mp4 -vf scale=1280:-2 -crf 28 -movflags +faststart
                      rave.mp4 -> 6 MB), drop it in src/assets/rave+c-rave/, use that path
                      and drop the host from media-src in nginx.conf. -->
+                <!-- TODO(Humlab): the poster is a frame grabbed at t=30 s, chosen because it
+                     shows the room and nobody objected. Swap rave-poster.jpg for a still
+                     someone picks when there is time for that conversation. -->
                 <video controls preload="metadata" playsinline
                     poster="assets/rave+c-rave/rave-poster.jpg" width="1280" height="720"
                     src="https://ikt.humlab.umu.se/RAVE/Video/VR-vid.mp4"

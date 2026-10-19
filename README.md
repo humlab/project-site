@@ -177,6 +177,9 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
   nor copied; a link-out was tried, and then removed too, because the app root
   `demo.humlab.umu.se/humlab-sead/` now 404s and the shell had nothing left to load. If the
   app comes back, the button markup and its URL are in `git show e6eb379`.
+* The /rave poster is a frame grabbed at t=30 s. It shows the room, nobody objected, and it
+  is not a chosen image. `src/pages/rave.html` carries the TODO; replacing
+  `assets/rave+c-rave/rave-poster.jpg` under the same name is enough (60 kB, 1280x720).
 * The seven clearly Swedish pages set `lang="sv"`. Mixed ones (`staden` ~0.65 Swedish,
   `rave`, `westac`, `linguistic-landscape`, `digitalamodeller`, `queer-ai`) still inherit
   `lang="en"` with `span.sv` blocks, which is correct only if those spans all carry `lang`.
