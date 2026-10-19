@@ -44,10 +44,12 @@ const check = async (href) => {
     // /rave links the mp4 it also plays: 200 is the whole test for a media file.
     if (/^2\d\d$/.test(out) && type.includes('html')) {
       const body = await res.text();
-      // digibon was a 254-byte shell with nothing in it. A page with no title but a script,
-      // canvas or img may simply be an app that paints itself (the SEAD image sphere is
-      // exactly that), so absence of a title alone is not evidence of a dead app.
-      const appLike = /<script\b[^>]*\bsrc=|<canvas\b|<img\b/i.test(body);
+      // A page with no title but a script, canvas or iframe may simply be an app that paints
+      // itself, so absence of a title alone is not evidence of a dead app: the SEAD image
+      // sphere is a 133-byte shell around a p5.js bundle, and digibon.humlab is a 254-byte
+      // shell embedding an ArcGIS Experience (an iframe is how a small project ships a map).
+      // Calling that second one dead deleted a working Explore button.
+      const appLike = /<script\b[^>]*\bsrc=|<canvas\b|<img\b|<iframe\b/i.test(body);
       if (HOLLOW.some((re) => re.test(body)) || (!appLike && !/<title[^>]*>[^<]/i.test(body)))
         out = 'hollow';
     }
