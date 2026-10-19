@@ -2,8 +2,11 @@
 // No dependencies, no framework, no client-side JS. Run: node build.mjs
 //
 // Pages are assembled and validated in memory, so a failing check leaves the
-// previously built dist/ untouched on disk.
-import { readFileSync as read, writeFileSync as write, mkdirSync, rmSync, cpSync, readdirSync, statSync } from 'node:fs';
+// previously built dist/ untouched on disk. The one exception is the webp encode step: it
+// runs after the checks and before the pages are written, so if cwebp dies halfway you get
+// an assets-only dist/ and a non-zero exit. Nothing is published on an exit code of 1.
+import { readFileSync as read, writeFileSync as write, mkdirSync, rmSync, cpSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 
 const SRC = 'src', OUT = 'dist';
@@ -111,6 +114,42 @@ for (const route of pages) {
   }
 }
 
+// ---------- webp ----------
+// Every raster a page references gets a .webp beside it in dist/, and its <img> is wrapped
+// in a <picture>: browsers that speak webp (everything since Safari 14, 2020) download
+// about a third of the bytes, everyone else gets the png/jpeg they always got. No JS, and
+// dist/ still opens from a directory listing.
+//
+// Generated at build time instead of committed, deliberately: when someone replaces
+// assets/foo.png by hand and a stale .webp sits beside it in git, every current browser
+// serves the old picture and the person who updated it sees the new one in their own
+// file:// preview. cwebp comes from the `webp` package (apt install webp); without it the
+// build ships exactly what it shipped before, with a warning.
+const WEBP_MIN = 20 * 1024;   // below this the markup costs more than the bytes it saves
+const WEBP_ARGS = ['-q', '80', '-m', '6', '-mt'];   // q80 measured visually identical at
+                                                    // 42-46 dB All-PSNR, see README
+const styles = src('styles.css');
+const refs = new Set(([...built.values()].join(' ') + ' ' + styles).match(/assets\/[^\s"')?#]+/g) || []);
+const webp = new Map();
+let cwebp = true;
+try { execFileSync('cwebp', ['-version'], { stdio: 'ignore' }); } catch { cwebp = false; }
+if (cwebp) {
+  for (const ref of refs) {
+    if (!/\.(png|jpe?g)$/i.test(ref)) continue;
+    const file = join(SRC, ref);
+    if (!existsSync(file) || statSync(file).size < WEBP_MIN) continue;
+    webp.set(ref, `${ref}.webp`);
+    distFiles.add(`${ref}.webp`);        // so the srcset refs below validate like any ref
+  }
+  for (const [name, html] of built) {
+    built.set(name, html.replace(/<img\b[^>]*>/gi, (tag) => {
+      const m = tag.match(/\bsrc="([^"]+)"/i);
+      if (!m || !webp.has(m[1].replace(/^\//, ''))) return tag;
+      return `<picture><source type="image/webp" srcset="${m[1]}.webp">${tag}</picture>`;
+    }));
+  }
+}
+
 // ---------- checks ----------
 const attrRefs = (tag) =>
   // srcset holds a comma list of "url 2x" pairs; <image> is a legacy alias of <img>.
@@ -175,7 +214,6 @@ function* scan(where, html) {
 
 for (const [where, html] of built) for (const problem of scan(where, html)) problems.push(problem);
 
-const styles = src('styles.css');
 for (const [, url] of styles.matchAll(/url\(['"]?([^'")]+)['"]?\)/g)) {
   if (/^(https?:|data:)/.test(url)) continue;
   if (!assets.includes(url.replace(/^\.\//, ''))) problems.push(`src/styles.css: url(${url}) is not in src/assets`);
@@ -184,7 +222,6 @@ for (const [, img] of src('partials/head.html').matchAll(/property="og:image" co
   if (!assets.includes(img.replace('{{origin}}', ORIGIN).replace(`${ORIGIN}/`, ''))) problems.push(`src/partials/head.html: og:image ${img} is not in src/assets`);
 }
 
-const refs = new Set(([...built.values()].join(' ') + ' ' + styles).match(/assets\/[^\s"')?#]+/g) || []);
 for (const a of assets) {
   if (basename(a).startsWith('.') || refs.has(a)) continue;
   warnings.push(`unused asset (${Math.round(statSync(join(SRC, a)).size / 1024)} kB): ${a}`);
@@ -211,6 +248,30 @@ mkdirSync(join(OUT, 'assets'), { recursive: true });
 cpSync(join(SRC, 'styles.css'), join(OUT, 'styles.css'));
 cpSync(join(SRC, 'favicon.ico'), join(OUT, 'favicon.ico'));
 cpSync(join(SRC, 'assets'), join(OUT, 'assets'), { recursive: true });
+let webpFailed = 0, webpFrom = 0, webpTo = 0, worst = [999, ''];
+for (const [ref, out] of webp) {
+  const from = join(SRC, ref), to = join(OUT, out);
+  mkdirSync(dirname(to), { recursive: true });
+  // cwebp writes its whole per-file report (including the PSNR we want) to stderr, and it is
+  // 15 lines per image, so both streams go into a pipe here rather than onto the terminal.
+  const r = spawnSync('cwebp', [...WEBP_ARGS, from, '-o', to], { encoding: 'utf8' });
+  const m = `${r.stdout}${r.stderr}`.match(
+    /Output:\s+(\d+) bytes\s+Y-U-V-All-PSNR\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+([\d.]+)/);
+  if (r.status !== 0 || !existsSync(to)) {
+    webpFailed++;
+    console.log(`  FAIL  cwebp could not encode ${ref}: ${(r.stderr || `exit ${r.status}`).trim().split('\n').pop()}`);
+    rmSync(to, { force: true });           // a truncated file would be picked over the png
+    continue;
+  }
+  webpFrom += statSync(from).size;
+  webpTo += m ? Number(m[1]) : statSync(to).size;
+  if (m && Number(m[2]) < worst[0]) worst = [Number(m[2]), ref];
+}
+if (webpFailed) { console.log(`\n${webpFailed} webp encode failure(s); dist/ is incomplete.`); process.exit(1); }
+if (webp.size)
+  console.log(`  webp  ${webp.size} images: ${(webpFrom / 1048576).toFixed(1)} MB -> ${(webpTo / 1048576).toFixed(1)} MB, lowest All-PSNR ${worst[0]} dB (${worst[1]})`);
+else if (!cwebp) console.log('  webp  cwebp not installed, shipping png/jpeg only (apt install webp)');
+
 for (const [name, html] of built) {
   mkdirSync(dirname(join(OUT, name)), { recursive: true });   // <route>/index.html variants
   write(join(OUT, name), html);
