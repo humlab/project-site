@@ -45,7 +45,15 @@ page.on('requestfailed', (r) => {
   if (ALLOWED.test(r.url())) allowed++;
   console.log(`FAILED  ${page_()} ${r.url().slice(0, 110)} ${r.failure()?.errorText || ''}`);
 });
-page.on('response', (r) => { if (r.status() >= 400) { bad++; console.log(`HTTP ${r.status()} ${page_()} ${r.url().slice(0, 110)}`); } });
+page.on('response', (r) => {
+  // Same rule as the two handlers above: a host on ALLOWED may answer badly and must not
+  // fail a deploy. The hotlinked mp4 is precisely that - byte-range requests routinely
+  // return 403 or 416, and a video that plays perfectly would exit non-zero.
+  if (r.status() < 400) return;
+  if (ALLOWED.test(r.url())) { allowed++; return; }
+  bad++;
+  console.log(`HTTP ${r.status()} ${page_()} ${r.url().slice(0, 110)}`);
+});
 
 for (const [label, width, height] of VIEWPORTS) {
   await page.setViewportSize({ width, height });

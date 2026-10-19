@@ -47,8 +47,15 @@ for (const required of ['index', '404'])
 const routes = new Set(pages);
 const distFiles = new Set([...assets, 'styles.css', 'favicon.ico', ...pages.map((r) => `${r}.html`)]);
 // /sead/ resolves to /sead/index.html in a server without rewrites; the checker has to
-// agree that such a file will exist.
-for (const r of pages) distFiles.add(`${r}/index.html`);
+// agree that such a file will exist - and it has to know both spellings, because the
+// directory form of every page links its siblings as /sead/. Register the file only and the
+// first cross-page link inside a subpage fails the build against a file that does exist.
+// index and 404 have no directory form (see the assemble loop), so do not claim one.
+for (const r of routes) {
+  if (r === 'index' || r === '404') continue;
+  distFiles.add(`${r}/index.html`);
+  distFiles.add(`${r}/`);
+}
 
 // ---------- assemble ----------
 const decode = (s) => s
@@ -126,15 +133,26 @@ for (const route of pages) {
 // file:// preview. cwebp comes from the `webp` package (apt install webp); without it the
 // build ships exactly what it shipped before, with a warning.
 const WEBP_MIN = 20 * 1024;   // below this the markup costs more than the bytes it saves
-const WEBP_ARGS = ['-q', '80', '-m', '6', '-mt'];   // q80 measured visually identical at
-                                                    // 42-46 dB All-PSNR, see README
+const WEBP_ARGS = ['-q', '80', '-m', '6', '-mt'];   // q80: measured All-PSNR 39.2-55 dB on
+                                                    // the current 70 images, see README
 const styles = src('styles.css');
 const refs = new Set(([...built.values()].join(' ') + ' ' + styles).match(/assets\/[^\s"')?#]+/g) || []);
 const webp = new Map();
 let cwebp = true;
 try { execFileSync('cwebp', ['-version'], { stdio: 'ignore' }); } catch { cwebp = false; }
 if (cwebp) {
+  // Only pictures an <img> actually draws: `refs` also contains the og:image and the
+  // <video poster>, and a .webp beside those is dead weight no browser can ask for (they
+  // are requested by URL by the share-preview crawler and by the player, neither of which
+  // reads a <picture>), plus it skews the PSNR line the build reports.
+  const drawn = new Set();
+  for (const html of built.values())
+    for (const tag of html.matchAll(/<img\b[^>]*>/gi)) {
+      const m = tag[0].match(/\bsrc="([^"]+)"/i);
+      if (m) drawn.add(m[1].replace(/^\//, ''));
+    }
   for (const ref of refs) {
+    if (!drawn.has(ref)) continue;
     if (!/\.(png|jpe?g)$/i.test(ref)) continue;
     const file = join(SRC, ref);
     if (!existsSync(file) || statSync(file).size < WEBP_MIN) continue;
