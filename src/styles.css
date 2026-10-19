@@ -409,6 +409,14 @@ footer img { max-width: 200px; }
   opacity: 0.8;
 }
 
+/* The webp pass wraps these images in a <picture>, which would then be the grid item and
+   the img an inline box inside it: height:100% resolves against the picture's auto height
+   instead of the 1fr track, and every tile collapses to the image's attribute size.
+   display:contents removes the picture's box, so the img is the grid item again. Source
+   selection is untouched, it is support detection, not layout. Browsers too old for
+   <picture> also lack display:contents (IE11); they get the collapsed tiles. */
+#main-grid-container picture { display: contents; }
+
 /* --- responsive --- */
 @media only screen and (max-width: 767px) {
   #baseplate { font-size: 0.8em; }
