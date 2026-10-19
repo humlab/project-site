@@ -36,6 +36,15 @@ Fonts are self-hosted (`src/assets/fonts`, latin subset): the site makes no requ
 third party, so no visitor IP leaves the server and the typography survives Google being
 down or blocked. Re-add a `fonts.googleapis.com` `<link>` and CSP entry only if you prefer not to.
 
+Prompt is served at **weight 100, one face**, because that is all the original `@import`
+requested (`Prompt:ital,wght@0,100;1,300`). Everything thin you see is that single face, and
+the handful of `font-weight: bold` rules are the browser faking an outline around it. Serving
+400 and 700 instead — which is what an earlier commit here did, reasonably enough — makes
+those rules mean what they say, and the site comes out bolder than the one it replaced. That
+is the whole explanation for "the old page is lighter": not a different font, the same font
+with weights it never had. If the fake bold bothers you more than the boldness, lower those
+five declarations to 400 (listed in the `@font-face` comment) rather than adding weights.
+
 What the checker does *not* do: tag balance is a count, so a `<p>` misnested inside another
 element that the browser repairs differently is out of scope, and `a<b and c>` in copy is
 indistinguishable from markup — that is why raw `<` is a failure.

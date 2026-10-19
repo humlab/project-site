@@ -57,18 +57,23 @@ iframe { border: none; }
   font-display: swap;
 }
 
-/* Prompt and Italianno are self-hosted (latin subset, same files Google was serving): a
-   public-sector page should not leak every visitor's IP to fonts.googleapis.com, and the
-   typography should not depend on a third party being up. */
+/* Prompt and Italianno are self-hosted (latin subset, the same files Google was serving):
+   a public-sector page should not leak every visitor's IP to fonts.googleapis.com, and the
+   typography should not depend on a third party being up.
+
+   Prompt ships exactly ONE face, weight 100. That is all the original ever had: its @import
+   asked for `Prompt:ital,wght@0,100;1,300`, so an upright face heavier than 100 was never
+   available and the `font-weight: bold` rules in this file drew either the thin face or a
+   synthesised outline of it. Self-hosting 400 and 700 here instead made those rules mean
+   what they say, and the rebuilt site came out bolder than the page it replaced. So do not
+   "improve" this by adding weights -- adding one changes the design, which is how this bug
+   happened in the first place. If the synthesised bold becomes unwanted, change the five
+   `font-weight: bold` declarations instead (here, .year, .sub-header, and twice in
+   .project-header-container): at 400 they ask for nothing the font cannot do honestly. */
 @font-face {
   font-family: 'Prompt';
-  src: url('assets/fonts/prompt-400-latin.woff2') format('woff2');
-  font-weight: 400; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: 'Prompt';
-  src: url('assets/fonts/prompt-700-latin.woff2') format('woff2');
-  font-weight: 700; font-style: normal; font-display: swap;
+  src: url('assets/fonts/prompt-100-latin.woff2') format('woff2');
+  font-weight: 100; font-style: normal; font-display: swap;
 }
 @font-face {
   font-family: 'Italianno';
