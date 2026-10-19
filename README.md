@@ -28,13 +28,37 @@ node build.mjs        # writes dist/, and validates everything below
 Warnings that need a human: unused assets (with size), images without `width`/`height`,
 and leftover template copy such as "Insert text here".
 
+**WebP.** Every referenced raster over 20 kB also gets a `.webp` beside it in `dist/`
+(`cwebp -q 80 -m 6 -mt`) and its `<img>` is wrapped in
+`<picture><source type="image/webp" srcset="..."><img src="..."></picture>`: no JS, and
+`dist/` still opens from a directory or a `file://` path. Measured on this tree: 70 images,
+20.9 MB of png/jpeg down to 7.6 MB, lowest All-PSNR 39.2 dB
+(`assets/infravis-sead/bugs-treemap.png`), 7 of the 70 under 41 dB and none under 39;
+`dist/` is 31 MB on disk. Everything smaller, and every SVG, is left alone. The encodes
+are generated, never committed: a stale `.webp` in git beside a hand-replaced png shows
+every current browser the old picture. `cwebp` comes from the `webp` package
+(`apt install webp`); without it the build warns and ships png/jpeg only. The encode runs
+*after* the checks and before the pages are written, so a `cwebp` failure deletes its
+partial file and exits 1 with an assets-only `dist/` — the one failure here that leaves
+something on disk. `cwebp` reports the PSNR of each encode on stderr; the build reads it and
+prints the lowest one it produced, so a quality regression shows up at a build instead of
+being assumed.
+
+A `<picture>` is a box, and a box between a grid and its image changes the layout.
+`#main-grid-container picture { display: contents }` is what keeps a tile's `<img>` the grid
+item; delete that rule and every tile collapses to the image's attribute size (9d3a478 put
+the bug in, ef6c8fe took it out). It is scoped to the front page because the two rules that
+size an image with a percentage height are both front-page grid items — every other image in
+the site is sized by width, which a wrapper cannot collapse.
+
 `<title>`/`og:` text comes from each page's `h2` (a `<br>` inside it becomes " – ").
 `<html lang>` comes from a `SWEDISH` set in `build.mjs`; `node tools/lang.mjs` prints how
 Swedish each page's text is so the set can be re-derived when pages change.
 
-Fonts are self-hosted (`src/assets/fonts`, latin subset): the site makes no request to any
-third party, so no visitor IP leaves the server and the typography survives Google being
-down or blocked. Re-add a `fonts.googleapis.com` `<link>` and CSP entry only if you prefer not to.
+Fonts are self-hosted (`src/assets/fonts`, two files, latin subset): no font request leaves
+the server, so no visitor IP goes to Google and the typography survives Google being down
+or blocked. Re-add a `fonts.googleapis.com` `<link>` and CSP entry only if you prefer not
+to.
 
 Prompt is served at **weight 100, one face**, because that is all the original `@import`
 requested (`Prompt:ital,wght@0,100;1,300`). Everything thin you see is that single face, and
@@ -69,6 +93,10 @@ sed -e 's|listen unix:/socket/nginx.sock;|listen 127.0.0.1:8099;|' \
 # include /tmp/site.conf from an http{} block, or paste it into a container's conf.d/
 ```
 
+`:8099` is a test instance only — production listens on the unix socket and nothing else.
+To see what the server in `deploy/` does rather than what nginx does, run its binary
+unpacked: `busybox httpd -f -p 8833 -h dist`.
+
 ## Checking a change
 
 ```sh
@@ -87,11 +115,14 @@ including an embed that passes CSP and is still blank because the other server a
 `X-Frame-Options: deny`, which is the bug that started all this (see Known issues).
 
 `tools/links.mjs` requests every outbound link, because HTTP 200 is not proof of life:
-three of the project's own apps answered 200 with `Welcome to nginx!` and one with a
-254-byte empty page. Those are reported as `hollow` and it exits non-zero, so it can gate a
-deploy, retrying a failure once before reporting it. A `timeout` from one container is not
-proof of death either (some hosts filter
-unusual clients) — check from somewhere else before deleting a link because of it.
+three of the project's own apps answered 200 with `Welcome to nginx!`. Those are reported
+as `hollow` and it exits non-zero, so it can gate a deploy, retrying a failure once before
+reporting it. Bodies are sniffed only when the response says `text/html` (for the mp4
+/rave links, a 200 is the whole test), and a page with no title that carries an iframe,
+canvas or script counts as an app that paints itself — the 254-byte digibon.humlab shell
+embeds an ArcGIS Experience, and calling it dead deleted a working Explore button. A
+`timeout` from one container is not proof of death either (some hosts filter unusual
+clients) — check from somewhere else before deleting a link because of it.
 
 ## Adding or changing a project page
 
@@ -99,7 +130,8 @@ unusual clients) — check from somewhere else before deleting a link because of
    `h2.sub-header` + `div.main-container` + left/right containers). The file name becomes
    the URL (`/sead`), the `<h2>` becomes the page title.
 2. Link it from the front page: `<a href="<route>">` in `src/pages/index.html` is rewritten
-   to a relative link at build time, and the checker fails if the route does not exist.
+   to a relative link at build time, and the checker fails if the route does not exist. The
+   grid is newest-first, so a new project's tile goes at the top of it.
 3. Put images in `src/assets/<route>/` with `width`/`height` attributes (the build warns
    about images that lack them) and `loading="lazy"` unless they are above the fold.
 4. Styles: `src/styles.css`, plain CSS with custom properties at the top — no
@@ -118,7 +150,14 @@ nginx image — TLS, HTTP/2 and HSTS belong to the front proxy that hands it
 ```sh
 node build.mjs && node tools/links.mjs
 rsync -a --delete dist/ <host>:/usr/share/nginx/html/
+curl -sI https://showcase.humlab.umu.se/assets/past/past-map.jpg.webp | grep -i content-type
 ```
+
+That last line is part of the deploy, not a curiosity: request one generated `.webp` from
+the deployed site and require `image/webp`. A hardened front proxy adds
+`X-Content-Type-Options: nosniff`, and with `nosniff` in the response an image whose
+`Content-Type` is absent or wrong is not sniffed around — it is refused, and the page shows
+a hole where the picture is.
 
 Keep `dist/` as the rsync source: pointing it at the repo root would ship `.git` (118 MB)
 and `--delete` the rest of the web root.
@@ -133,9 +172,14 @@ process, no shell, read-only, 64 MB. `build.mjs` writes a second copy of every p
 (it 302s to `/sead/` by itself and serves the index) — without that, the minimum container
 404s on every canonical URL. What it still cannot do, measured with the real 1.37 binary:
 send any header (no CSP, no cache, no nosniff), serve a custom 404 page, gzip, keep-alive,
-or learn that `.woff2`/`.mp4` have MIME types (no working `httpd.conf` syntax for it; they
-go out with no `Content-Type`). Browsers cope; a front proxy that adds `nosniff` would not.
-The nginx config is the only place the security policy exists.
+or put a `Content-Type` on `.webp`, `.woff2`, `.mp4` and `.ico`: none are in its built-in
+table, the Debian build does not read `/etc/mime.types` (the entries are in the file, the
+header is still absent), and `httpd.conf`'s `E:`/`A:` mime syntax is silently ignored, so
+those go out with no `Content-Type` at all. Browsers sniff their way to a font or a video;
+a front proxy that adds `nosniff` forbids the sniff, and then the browser refuses them —
+including the generated `.webp`, which is why the `curl -I` above is in the deploy list.
+nginx knows every one of them from its own `mime.types`, one more reason the nginx config —
+also the only place the security policy exists — is what should serve the site.
 
 ```sh
 deploy/run.sh        # node build.mjs, then build + start the container on 127.0.0.1:9712
@@ -152,7 +196,9 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
   same-origin SVG, which needs its own CSP. The `$status` half keeps 404s from being
   cached for 30 days while an `rsync --delete` replaces an image.
 * Canonical URLs are extensionless (`/sead`); `/sead.html` 301s to it. In-page links stay
-  relative so `dist/` also works from a directory or the filesystem.
+  relative so `dist/` also works from a directory or the filesystem. A project that changes
+  name needs its own rule: `/swedeb` (now Riksdagsdebatter) 301s from every spelling
+  (`/swedeb`, `/swedeb/`, `/swedeb.html`) so old bookmarks and the old front page still land.
 * `script-src 'none'`: the site has no JavaScript, so an injected script cannot run. When
   you add an embed, extend `frame-src` and re-run `tools/smoke.mjs`.
 * Heading metrics and the invisible `<hr>` are ported literally from Ionic's normalize
@@ -183,9 +229,9 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
 * The seven clearly Swedish pages set `lang="sv"`. Mixed ones (`staden` ~0.65 Swedish,
   `rave`, `westac`, `linguistic-landscape`, `digitalamodeller`, `queer-ai`) still inherit
   `lang="en"` with `span.sv` blocks, which is correct only if those spans all carry `lang`.
-* `/ships` is reachable but not linked: its front-page tile was already commented out
-  before the migration (and pointed at an image that no longer exists). Either finish the
-  copy or delete the page.
+* `/ships` is reachable but not linked: it has no tile on the front page at all — the
+  commented-out one that came over with the migration (pointing at an image that no longer
+  existed) is deleted. Either finish the copy or delete the page.
 * `/melody` lost its "Upptäck Melodys hemsida ▶" button in the same pass: on the old site it
   was `href=""`, i.e. it reloaded the page. Say the word and it can go to the umu.se page
   that /melody already links.
@@ -194,16 +240,18 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
   knows the project should either name the right URL or drop the sentence.
 * Contrast: white on `--accent-2` (#c95100) sits at ~4.4:1, and the `.infravis` tag label
   is white on a yellow-red gradient. Public-sector WCAG wants 4.5:1 for body text.
-* `https://sweclarin.se/` (linked from /visp) answers with an **expired certificate**, so a
-  browser refuses it. That is their server to fix — keep the link, chase the renewal, and
-  drop the link only if it stays broken. `tools/links.mjs` reports it as
-  `unreachable (CERT_HAS_EXPIRED)`.
 * The `.mp4` on /visp has no captions (`<track>`), relevant under the Accessibility Act.
 * 23 MB of images (down from 59 MB: `pngquant --quality=80-` + `jpegoptim --max=78`, applied
   in place, nothing resized). Most of what is left is still larger than it is drawn: 87% of
   the bytes used to render at <= 480 CSS px and only 1.4 MB at > 800 px, so resizing to 2x
   display width would save several more MB — at the cost of images you cannot zoom into.
-  WebP q80 measured 7.5 MB, but every page would need `<picture>` with a fallback.
+  The generated `.webp` copies (see Build) are what a current browser actually downloads;
+  the png/jpeg stay in `dist/` as the fallback, and 31 MB is the size of the tree, not of a
+  visit.
+* /visp's page logo is `assets/visp/visp_slogan_en.svg`; the tile on the front page still
+  uses the old `assets/visp/VISP-logo-black.png`. Both are live, neither is dead — swapping
+  the tile is a decision nobody has made yet, and until someone does, deleting either file
+  breaks a page.
 * Three "Explore application" buttons were removed because the apps behind them are gone:
   /enida, /staden and /yrkesrum (all three now answer the nginx default page with an empty
   body). /digibon was removed in the same sweep and put back: its 254-byte page is a shell
