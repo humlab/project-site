@@ -150,9 +150,11 @@ deploy/run.sh        # node build.mjs, then build + start the container on 127.0
 
 * `src/pages/ships.html` still contains scaffolding: "Insert text here" twice, two empty
   image boxes, and a YouTube embed belonging to another project. It needs copy from Humlab.
-* Two embeds cannot render anywhere: `demo.humlab.umu.se/seadimagesphere/` (infravis-sead)
-  and `ikt.humlab.umu.se/RAVE/Video/VR-vid.mp4` (rave) send `X-Frame-Options: deny`. Host
-  the media or link out instead of framing.
+* `demo.humlab.umu.se/seadimagesphere/` still cannot be embedded (it answers
+  `X-Frame-Options: deny`) and cannot be copied here (a p5.js bundle we do not have), so
+  /infravis-sead links out to it instead of showing an empty box. /rave's video is the same
+  story on `ikt.humlab.umu.se`, solved the other way: a `<video>` element, because media
+  loads are not governed by that header.
 * The seven clearly Swedish pages set `lang="sv"`. Mixed ones (`staden` ~0.65 Swedish,
   `rave`, `westac`, `linguistic-landscape`, `digitalamodeller`, `queer-ai`) still inherit
   `lang="en"` with `span.sv` blocks, which is correct only if those spans all carry `lang`.

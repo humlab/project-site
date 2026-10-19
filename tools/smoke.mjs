@@ -64,6 +64,6 @@ const isNginx = /nginx/.test(four.headers.get('server') || '');
 console.log(`404.html direct request -> ${four.status}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
 if (isNginx && four.status < 400) { bad++; console.log('  FAIL  the error page answers with a success status'); }
 console.log(`${pages.length} pages x ${VIEWPORTS.length} viewports against ${BASE}, ${bad} problem(s)` +
-  ` (${allowed} of them the two documented X-Frame-Options embeds)`);
+  ` (${allowed} of them the documented X-Frame-Options embeds)`);
 await browser.close();
 process.exit(bad - allowed ? 1 : 0);
