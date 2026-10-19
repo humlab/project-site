@@ -4,7 +4,7 @@
 // Pages are assembled and validated in memory, so a failing check leaves the
 // previously built dist/ untouched on disk.
 import { readFileSync as read, writeFileSync as write, mkdirSync, rmSync, cpSync, readdirSync, statSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 const SRC = 'src', OUT = 'dist';
 const ORIGIN = 'https://showcase.humlab.umu.se';
@@ -43,6 +43,9 @@ for (const required of ['index', '404'])
   if (!pages.includes(required)) problems.push(`src/pages/${required}.html is missing`);
 const routes = new Set(pages);
 const distFiles = new Set([...assets, 'styles.css', 'favicon.ico', ...pages.map((r) => `${r}.html`)]);
+// /sead/ resolves to /sead/index.html in a server without rewrites; the checker has to
+// agree that such a file will exist.
+for (const r of pages) distFiles.add(`${r}/index.html`);
 
 // ---------- assemble ----------
 const decode = (s) => s
@@ -79,17 +82,33 @@ for (const route of pages) {
     .replace(/<!--[\s\S]*?-->/g, '');            // keep notes in the source, ship none
   // A 404 is rendered for the requested URL, so relative refs would resolve against a
   // directory that has no files in it (/deep/typo -> /deep/styles.css).
+  // Root-absolute refs, for pages that are not served from the site root.
+  const absolute = (h) => h
+    .replace(/\b(src|href|poster|data-src)="(?!\/|#|[a-zA-Z]+:)/g, '$1="/')
+    .replace(/\bsrcset="(?!\/|#|[a-zA-Z]+:)/g, 'srcset="/');
+
   if (route === '404') {
     // Served for whatever was requested, so relative refs would resolve against a
     // directory with nothing in it (/deep/typo -> /deep/styles.css), and a canonical
     // would point crawlers at a URL that answers 404.
-    html = html
-      .replace(/\b(src|href|poster|data-src)="(?!\/|#|[a-zA-Z]+:)/g, '$1="/')
-      .replace(/\bsrcset="(?!\/|#|[a-zA-Z]+:)/g, 'srcset="/')
+    html = absolute(html)
       .replace(/<link rel="canonical"[^>]*>\n?/, '')
       .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${ORIGIN}/">`);
   }
   built.set(`${route}.html`, html);
+
+  // The same page under /sead/index.html, so a server without rewrite rules (the busybox
+  // container in deploy/) can answer the canonical /sead at all: it redirects /sead to
+  // /sead/ on its own and serves the index. Refs must be root-absolute from there.
+  // index.html is already at the root, and 404 has no meaningful directory form.
+  if (route !== 'index' && route !== '404') {
+    let dirForm = absolute(html)
+      // point at the directory form too, so no server feature is needed to follow links.
+      // index first: it has no /index/ directory, it is the root document.
+      .replace(/href="\/index\.html"/g, 'href="/"')
+      .replace(/href="\/([\w-]+)\.html"/g, (m, r) => (routes.has(r) ? `href="/${r}/"` : m));
+    built.set(`${route}/index.html`, dirForm);
+  }
 }
 
 // ---------- checks ----------
@@ -192,4 +211,7 @@ mkdirSync(join(OUT, 'assets'), { recursive: true });
 cpSync(join(SRC, 'styles.css'), join(OUT, 'styles.css'));
 cpSync(join(SRC, 'favicon.ico'), join(OUT, 'favicon.ico'));
 cpSync(join(SRC, 'assets'), join(OUT, 'assets'), { recursive: true });
-for (const [name, html] of built) write(join(OUT, name), html);
+for (const [name, html] of built) {
+  mkdirSync(dirname(join(OUT, name)), { recursive: true });   // <route>/index.html variants
+  write(join(OUT, name), html);
+}
