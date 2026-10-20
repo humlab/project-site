@@ -228,7 +228,13 @@ if (cwebp) {
       // for the project page: 4.7 MB of the front page's weight was that mix-up.
       const to = (/class="[^"]*\bscreenshot-cover\b/.test(tag) ? tileTo : fullTo).get(ref);
       if (!to) return tag;
-      return `<picture><source type="image/webp" srcset="${to}">${tag}</picture>`;
+      // The directory-form copy of a page (dist/sead/index.html, which is what a container
+      // serves at /sead/) already had its hrefs and srcs rewritten to root-absolute paths;
+      // a srcset inserted after that has to match, because a relative one resolves against
+      // /sead/ and 404s - and a failed <source> does NOT fall back to the <img>, the picture
+      // is simply gone. Live proof: /visp/ rendered 2 of its 9 images.
+      const abs = dirname(name) === '.' ? '' : '/';
+      return `<picture><source type="image/webp" srcset="${abs}${to}">${tag}</picture>`;
     }));
   }
 }
@@ -262,6 +268,13 @@ function* scan(where, html) {
         continue;
       }
       const clean = join(ref.split('#')[0].split('?')[0]).replace(/^\.\//, '');
+      if (where.endsWith('/index.html')) {
+        // Nothing relative survives in a page served from a directory: it resolves against
+        // that directory. The build absolute-izes such pages, so a relative ref here means a
+        // reference inserted after that pass - the bug that hid broken images on /visp/.
+        yield `${where}: relative ${attr} "${ref}" in a directory-form page (would resolve against /${where.slice(0, -'index.html'.length)})`;
+        continue;
+      }
       if (!distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
     }
   }

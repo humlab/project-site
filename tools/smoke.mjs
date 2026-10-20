@@ -12,10 +12,17 @@
 // canonical rewrites and the cache headers only exist there, so a plain server can only
 // prove the pages load.
 import { chromium } from 'playwright';
-import { readdirSync } from 'node:fs';
+import { readdirSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 const BASE = process.argv[2] || 'http://localhost:8080';
-const pages = readdirSync('dist').filter((f) => f.endsWith('.html') && f !== '404.html');
+// Both forms of every route. dist/<route>.html is what a browser is linked to; dist/<route>/index.html
+// is what a container without rewrite rules actually serves at /<route> - and it is a
+// different document (root-absolute refs), which is how a broken srcset on /visp/ stayed
+// invisible while every /visp.html run passed.
+const pages = readdirSync('dist', { withFileTypes: true })
+  .flatMap((d) => d.isFile() && d.name.endsWith('.html') && d.name !== '404.html' ? [d.name]
+    : d.isDirectory() && existsSync(join('dist', d.name, 'index.html')) ? [`${d.name}/index.html`] : []);
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
