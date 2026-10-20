@@ -182,11 +182,18 @@ Before believing a deploy, check what the front proxy already sends. Measured at
 today (`curl -I https://showcase.humlab.umu.se/`, nginx 1.28 Ubuntu): `nosniff`,
 `X-Frame-Options: DENY`, `X-XSS-Protection`, `Referrer-Policy:
 no-referrer-when-downgrade` and HSTS, no CSP and no Cache-Control. So this block would send
-a second `Referrer-Policy` (last value wins) and a `X-Frame-Options` that disagrees with the
-CSP's `frame-ancestors`. Keep one side, not two: the proxy keeps the ones it has, the site
-block adds CSP and caching.
+a second `Referrer-Policy` and a `X-Frame-Options` that disagrees with the CSP's
+`frame-ancestors`. Which copy a browser obeys is not a thing to rely on: `Referrer-Policy`
+is a single-value field, and RFC 9110 §5.3 calls a repeated single-value field malformed,
+so the safe move is to send one copy — `proxy_hide_header Referrer-Policy;
+proxy_hide_header Strict-Transport-Security;` at the proxy that fronts the container, and
+let the site block add only what the edge does not already send (CSP, cache).
 
-**Locked-down container** (`deploy/`). A `scratch` image running busybox `httpd`: one
+**Locked-down container** (`deploy/`). One name, three places: the image is
+`localhost/showcase_static`, and a quadlet whose `Image=` says anything else — `showcase_nginx`
+is a common leftover — starts a *different* image and no amount of `podman build` will change
+what answers. Check `podman inspect showcase-nginx --format '{{.Image}} {{.Created}}'`
+against what you just built before believing a deploy. A `scratch` image running busybox `httpd`: one
 process, no shell, read-only, 64 MB. `build.mjs` writes a second copy of every page as
 `<route>/index.html` with root-absolute refs precisely so this server can answer `/sead`
 (it 302s to `/sead/` by itself and serves the index) — without that, the minimum container
