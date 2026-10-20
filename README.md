@@ -207,8 +207,9 @@ anonymous bytes. One engine tested, headless; if a Firefox/WebKit check ever say
 the proxy block below is what fixes it, not a format change.
 
 **This is the deployment in use**: the container serves bytes, the front proxy supplies what
-busybox cannot invent. `deploy/proxy-showcase.conf` is that vhost — the canonical rewrites,
-the header list and four `Content-Type` overrides — tested against the running container:
+busybox cannot invent. `deploy/proxy-showcase.conf` is that vhost — the canonical rewrites, the
+header list, four `Content-Type` overrides, and a `proxy_intercept_errors` fetch of
+`404.html` so a missing page gets our text at status 404 rather than busybox's at 404 — tested against the running container:
 `.webp` → `image/webp`, `.woff2` → `font/woff2`, one `Content-Type` per response (an
 `add_header` without `proxy_hide_header` appends a second one, which is worse than none),
 CSP present on the 301s as well as the 200s, `Cache-Control` differing for html, css and
