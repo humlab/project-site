@@ -41,10 +41,13 @@ if (unpaired.length) {
 // Decided from served bytes rather than the Server header: the deploy/proxy-showcase.conf
 // vhost answers `Server: nginx` and still serves the directory copy, so a header sniff would
 // drop the only base on which the container's own document gets measured.
-// Every directory URL is probed before the browser starts, all at once: a server that accepts and
-// never answers then costs the phase one timeout instead of one per route. The number is the one
-// the fixers measured - worst probe 30 ms over the local dist, 56 ms against the live site - so
-// 5 s sits about 100x inside anything a working base does.
+// Every directory URL is probed before the browser starts, four at a time. Not one at a time: a
+// server that accepts and never answers would cost one timeout per route, 130 s of it. Not all at
+// once either: the busybox base in deploy/inetd.conf forks one `httpd -i` per connection and
+// deploy/sample-run.sh caps that box at 32 pids, so 26 simultaneous probes can exhaust the server
+// and read back as 26 broken routes - a false alarm is its own kind of bug. Four costs one timeout
+// per batch (20 s worst case) and leaves the fork budget alone. The 5 s is measured, not chosen:
+// worst directory probe 30 ms over the local dist, 56 ms against the live site.
 const PROBE_TIMEOUT = 5000;
 const probeOne = async (f) => {
   try {
@@ -58,8 +61,12 @@ const probeOne = async (f) => {
       : `${e.name}${e.cause?.code ? ' ' + e.cause.code : ''}` };
   }
 };
-const probes = new Map(await Promise.all(entries.filter((f) => f.endsWith('/index.html'))
-  .map(async (f) => [f, await probeOne(f)])));
+const dirEntries = entries.filter((f) => f.endsWith('/index.html'));
+const probes = new Map();
+for (let i = 0; i < dirEntries.length; i += 4) {
+  for (const [f, p] of await Promise.all(dirEntries.slice(i, i + 4)
+    .map(async (f) => [f, await probeOne(f)]))) probes.set(f, p);
+}
 const pages = [], collapsed = [];
 for (const f of entries) {
   if (!f.endsWith('/index.html')) { pages.push(f); continue; }
@@ -191,6 +198,10 @@ for (const [label, width, height] of VIEWPORTS) {
 // nginx canonicalises /404.html -> /404 -> 404; a plain static server has no such rule,
 // so only hold the server to it when it claims to be the production one.
 const four = await fetch(BASE + '/404.html', { signal: AbortSignal.timeout(PROBE_TIMEOUT) }).catch(() => null);
+// A server that cannot answer a request for a static file it is holding is not one whose other
+// answers can be trusted, and "no answer" used to be the only outcome that printed a reassuring
+// note about a non-production server and moved on.
+if (!four) { bad++; console.log('FAIL  /404.html: no answer (this probe waits 5s)'); }
 const isNginx = /nginx/.test(four?.headers.get('server') || '');
 console.log(`404.html direct request -> ${four ? four.status : 'no answer'}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
 if (isNginx && four.status < 400) { bad++; console.log('  FAIL  the error page answers with a success status'); }

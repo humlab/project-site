@@ -130,15 +130,21 @@ unpacked: `busybox httpd -f -p 8833 -h dist`.
 ```sh
 node build.mjs
 npm i --no-save --no-package-lock playwright && npx playwright install chromium
-node tools/smoke.mjs http://127.0.0.1:8099                # every page, two viewports
+node tools/smoke.mjs http://127.0.0.1:8099      # every page, two viewports, both forms
 node tools/links.mjs                                      # needs network
 ```
 
 `tools/smoke.mjs` loads every built page in headless Chromium and reports console errors,
 failed requests, non-200 responses, CSP violations, and whether `/404.html` stays non-200.
-It exits non-zero and can gate a deploy. Against a bare static server it can only prove the
-pages load. One report is tolerated: `ikt.humlab.umu.se`, whose mp4 `/rave` hotlinks, is not
-our server, so a failure there is counted but does not fail the gate. Anything else does —
+It exits non-zero and can gate a deploy. Each page is two documents, so a bare static server sees
+53 loads; under `nginx.conf`'s canonical rewrites it loads 27 and proves the other 26 directory
+URLs answer on the canonical URL with the flat document's own bytes, and says so in the report. A
+directory probe that errors, times out, or returns anything else fails the run: those are the
+container's own documents, and a gate that skips them and exits 0 is not a gate. It fails on a page
+built in one form and not the other, because that `dist/` is not a build output. One report is
+tolerated: `ikt.humlab.umu.se`, whose mp4 `/rave` hotlinks, is not our server, so a failure there
+is counted and shown but cannot fail the run — tolerance is a ceiling on what may be ignored,
+never a credit that cancels somebody else's failure. Anything else does —
 including an embed that passes CSP and is still blank because the other server answers
 `X-Frame-Options: deny`, which is the bug that started all this (see Known issues).
 
