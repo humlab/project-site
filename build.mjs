@@ -96,7 +96,7 @@ function* elements(html) {
     let j = i + 2, q = '', qPos = -1, afterEq = false;
     for (; j < html.length; j++) {
       const c = html[j];
-      if (q) { if (c === q) q = ''; }                       // a '>' INSIDE a value is legal
+      if (q) { if (c === q) { q = ''; afterEq = false; } }  // a '>' INSIDE a value is legal
       else if ((c === '"' || c === "'") && afterEq) { q = c; qPos = j; }
       else if (c === '>') break;
       else if (!/\s/.test(c)) afterEq = c === '=';
@@ -116,11 +116,23 @@ function* elements(html) {
 
 // name, the text around '=', the raw value token. A value is matched whole, so nothing inside
 // one can read as an attribute name.
-const attrPairs = (tag) => [...tag.matchAll(/([-\w]+)(\s*=\s*)("[^"]*"|'[^']*'|[^\s"'=<>]+)/g)];
+const attrPairs = (tag) => [...tag.matchAll(/([-\w]+)(?:\s*=\s*)("[^"]*"|'[^']*'|[^\s"'=<>]+)/g)];
+// One attribute of one tag, as a value rather than a match array: src and class are read by the
+// webp pass, which used a double-quoted-only regex and so silently skipped every src='x.png'.
+const attrOf = (tag, name) => {
+  for (const m of attrPairs(tag)) if (m[1].toLowerCase() === name) return valueOf(m[2]);
+  return null;
+};
 // What absolute() may have to move. Suffix-anchored, because absolute() has always matched a
 // name at a word boundary: `data-srcset` and `xlink:href` do hold a ref a browser follows, and
 // a validator that ignored them would wave through the 404 the rewriter had just rewritten.
-const REF_ATTR = /(?:^|[-:])(href|src|poster|data-src|srcset)$/i;
+// The names whose value a browser fetches, matched whole - not a suffix rule. `data-href` ends
+// in `href` and is a hook for a script this site does not run: rewriting it and then failing the
+// page for a ref nobody asks for is a gate shouting at harmless markup. `data` is in the list
+// because <object data="…"> is a fetch like any other, and nothing else here covers it; the one
+// <object> in this site is inside a comment, so it is latent - uncommented, it now reads
+// `missing link "assets/sead/Sead-logo-animation.svg"`, which is true, that file is not there.
+const REF_ATTR = /^(?:href|src|poster|srcset|data|data-src|data-srcset)$/i;
 const valueOf = (raw) => (/^['"]/.test(raw) ? raw.slice(1, -1) : raw);
 const isRelative = (v) => v !== '' && !/^([a-zA-Z][\w+.-]*:|#|\/)/.test(v);
 
@@ -131,6 +143,15 @@ const mapTags = (html, f) => {
     const rep = f(el);
     if (rep !== null) { out += html.slice(last, el.start) + rep; last = el.end; }
   }
+  return out + html.slice(last);
+};
+
+// What a browser reads as text: everything between the elements. Tag balance and the raw-`<`
+// rule counted these with a regex over the document, which made `alt="see </p> below"` a
+// "p unbalanced" refusal of valid markup, and let a raw `<` in copy pair with the wrong `>`.
+const textOf = (html) => {
+  let out = '', last = 0;
+  for (const el of elements(html)) { out += html.slice(last, el.start); last = el.end; }
   return out + html.slice(last);
 };
 
@@ -145,16 +166,20 @@ for (const route of pages) {
     .replace(/href="\/([\w-]+)"/g, (m, r) => (routes.has(r) ? `href="${r}.html"` : m))
     .trim();
 
-  // Not /<h2[^>]*>/: a '>' in the heading's own text cuts that match short and the <title>
-  // gets derived from the wrong span of markup.
+  // The <title> comes out of the first <h2>. Comments go first: a commented-out <h2> above the
+  // real one used to win, and ship its text as the page title and the og:description. Then the
+  // element walk, because /<h2[^>]*>/ ends at a '>' inside the heading's own attributes; and the
+  // tags inside it are deleted by mapTags, which is the only quote-aware stripper here - a raw
+  // <[^>]*> ate `title="a > b"` and shipped ` b">` in the title.
+  const uncommented = body.replace(/<!--[\s\S]*?-->/g, '');
   let h2End = -1;
-  for (const el of elements(body)) if (/^<h2\b/i.test(el.tag)) { h2End = el.end; break; }
-  const h2Close = h2End < 0 ? -1 : body.indexOf('</h2>', h2End);
-  const heading = h2Close < 0 ? null : [null, body.slice(h2End, h2Close)];
-  if (!heading) problems.push(`src/pages/${route}.html: no <h2>, cannot derive <title>`);
-  const text = heading
-    ? decode(heading[1].replace(/<br\s*\/?>/gi, ' – ').replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim()
-    : route;
+  for (const el of elements(uncommented)) if (/^<h2\b/i.test(el.tag)) { h2End = el.end; break; }
+  const h2Close = h2End < 0 ? -1 : uncommented.indexOf('</h2>', h2End);
+  let text = h2Close < 0 ? '' : decode(
+    mapTags(uncommented.slice(h2End, h2Close).replace(/<br\s*\/?>/gi, ' – '), () => '')
+  ).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  if (!text) problems.push(`src/pages/${route}.html: no text in an <h2>, cannot derive <title>`);
+  text ||= route;
   const isIndex = route === 'index';
   let html = (fill('head.html', {
     '{{title}}': esc(isIndex ? 'Humlab Showcase' : `${text} – Humlab Showcase`),
@@ -165,8 +190,6 @@ for (const route of pages) {
     '{{route}}': route,
   }) + src('partials/header.html') + '\n' + body + '\n' + src('partials/footer.html'))
     .replace(/<!--[\s\S]*?-->/g, '');            // keep notes in the source, ship none
-  // A 404 is rendered for the requested URL, so relative refs would resolve against a
-  // directory that has no files in it (/deep/typo -> /deep/styles.css).
   // Root-absolute refs, for pages that are not served from the site root.
   // Reads the same tokenizer every check reads, so it moves every form they can see: unquoted,
   // single-quoted, spaced `=`, uppercase, and every candidate of a srcset rather than only the
@@ -178,7 +201,7 @@ for (const route of pages) {
       let out = tag, shift = 0, moved = false;
       for (const m of attrPairs(tag)) {
         if (!REF_ATTR.test(m[1])) continue;
-        const raw = m[3], quote = /^['"]/.test(raw) ? raw[0] : '';
+        const raw = m[2], quote = /^['"]/.test(raw) ? raw[0] : '';
         const value = valueOf(raw);
         let fixed = null;
         if (/^srcset$/i.test(m[1])) {
@@ -278,13 +301,13 @@ if (cwebp) {
   for (const html of built.values())
     for (const { tag } of elements(html)) {
       if (!/^<img\b/i.test(tag)) continue;
-      const m = tag.match(/\bsrc="([^"]+)"/i);
-      if (!m) continue;
-      const ref = m[1].replace(/^\//, '');
+      const srcAttr = attrOf(tag, 'src');
+      if (!srcAttr) continue;
+      const ref = srcAttr.replace(/^\//, '');
       // .screenshot-cover marks the tile pictures and nothing else in this site. A picture
       // can be drawn both ways - the tile thumbnail and the full screenshot on its own page -
       // and then it needs both variants, because the choice belongs to the <img>, not the file.
-      const tile = /class="[^"]*\bscreenshot-cover\b/.test(tag);
+      const tile = /\bscreenshot-cover\b/.test(attrOf(tag, 'class') || '');
       const seen = drawn.get(ref) || { tile: false, page: false };
       drawn.set(ref, { tile: seen.tile || tile, page: seen.page || !tile });
     }
@@ -325,13 +348,13 @@ if (cwebp) {
     // shipping a </picture> inserted inside an open tag.
     built.set(name, mapTags(html, ({ tag }) => {
       if (!/^<img\b/i.test(tag)) return null;
-      const m = tag.match(/\bsrc="([^"]+)"/i);
-      if (!m) return tag;
-      const ref = m[1].replace(/^\//, '');
+      const srcAttr = attrOf(tag, 'src');
+      if (!srcAttr) return null;                    // null = keep the element as it is
+      const ref = srcAttr.replace(/^\//, '');
       // Tiles ask for their thumbnail even when the same file also has a full-size .webp
       // for the project page: 4.7 MB of the front page's weight was that mix-up.
-      const to = (/class="[^"]*\bscreenshot-cover\b/.test(tag) ? tileTo : fullTo).get(ref);
-      if (!to) return tag;
+      const to = (/\bscreenshot-cover\b/.test(attrOf(tag, 'class') || '') ? tileTo : fullTo).get(ref);
+      if (!to) return null;
       // Every page in servedAbs had its hrefs and srcs rewritten to root-absolute paths
       // before this loop runs - the directory-form copies a container serves at /sead/,
       // and 404.html, which nginx renders at the URL that failed (/deep/typo), so nothing
@@ -348,7 +371,7 @@ if (cwebp) {
 // ---------- checks ----------
 const attrRefs = (tag) =>
   // srcset holds a comma list of "url 2x" pairs; <image> is a legacy alias of <img>.
-  attrPairs(tag).filter(([, name]) => REF_ATTR.test(name)).flatMap(([, name, , raw]) => {
+  attrPairs(tag).filter(([, name]) => REF_ATTR.test(name)).flatMap(([, name, raw]) => {
     const value = valueOf(raw);
     return /^srcset$/i.test(name) && value !== ''
       ? value.split(',').map((c) => c.trim().split(/\s+/)[0]).filter(Boolean)
@@ -356,7 +379,12 @@ const attrRefs = (tag) =>
   });
 
 function* scan(where, html) {
-  html = html.replace(/<image(?=[\s>])/gi, '<img');
+  // <image> is the legacy name of <img> in HTML and needs the alt/size checks; inside <svg> it
+  // is a different element that takes no alt, so leave it alone there. Tag-scoped, not a
+  // document-wide replace: prose quoting `<image src=x>` became a real img and failed as one.
+  if (!/<svg[\s>]/i.test(html)) {
+    html = mapTags(html, ({ tag }) => (/^<image(?=[\s>])/i.test(tag) ? '<img' + tag.slice(6) : null));
+  }
   // There is no "form the build cannot parse" any more: absolute() reads this exact grammar,
   // so every ref a check can see is one the rewriter saw too, and a relative ref left in a
   // page served below the site root is a bug in this file - the servedAbs rule below is what
@@ -366,25 +394,33 @@ function* scan(where, html) {
     if (el.badQuote >= 0) {
       yield `${where}: attribute quote never closes (line ${html.slice(0, el.badQuote).split('\n').length}) `
         + `in ${tag.slice(0, 70)} - a browser reads the markup after it as part of that value`;
+      continue;                                        // one error, not twenty false ones
     }
     for (const ref of attrRefs(tag)) {
       const attr = /srcset/i.test(tag) ? 'srcset' : 'link';
       if (ref === '') { yield `${where}: empty src/href`; continue; }
       if (/^http:\/\/https?:/.test(ref)) { yield `${where}: malformed link ${ref}`; continue; }
       if (/^https?:\/\/[/"]?$/i.test(ref)) { yield `${where}: link with a scheme and no host: "${ref}"`; continue; }
-      // tel:/sms: are refs too. /i on both tests, together: browsers and mail clients follow
-      // TEL:, and case-insensitive here but case-sensitive below would let HTTP:// through as
-      // a scheme and skip the plain-http rule - a silent downgrade instead of an error.
-      if (/^(https?:|mailto:|tel:|sms:|data:|#|\/)/i.test(ref)) {
-        if (/^http:\/\//i.test(ref)) {
+      // Any scheme is somebody else's resource, and isRelative() is what says so - the same
+      // predicate absolute() uses, so a geo:, ftp: or urn: link cannot be diagnosed as a
+      // relative file below the site root (it was, which is a wrong answer about a working
+      // link). http: is the one scheme with a rule of its own.
+      if (/^https?:\/\//i.test(ref)) {
+        if (/^http:\/\//i.test(ref)) {           // https is fine; the plain-http rule is the reason
           let host = '';
           try { host = new URL(ref).hostname; } catch { yield `${where}: unparseable link ${ref}`; continue; }
           if (!httpAllowed(host)) yield `${where}: plain http link ${ref}`;
         }
-        if (ref.startsWith('/')) {
-          const clean = ref.split('#')[0].split('?')[0].slice(1);
-          if (clean && !distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
-        }
+        continue;
+      }
+      // One test, case-insensitive, for every other scheme - mailto:, tel:, sms:, data:, geo:,
+      // ftp:, urn:, and the ones not invented yet. A scheme is not our file to check; the
+      // allow-list this replaced reported `geo:63.82,20.26` as a relative ref below the site
+      // root, which is a wrong answer about a link that works.
+      if (/^[a-zA-Z][\w+.-]*:/i.test(ref) || ref.startsWith('#')) continue;
+      if (ref.startsWith('/')) {
+        const clean = ref.split('#')[0].split('?')[0].slice(1);
+        if (clean && !distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
         continue;
       }
       const clean = join(ref.split('#')[0].split('?')[0]).replace(/^\.\//, '');
@@ -416,21 +452,21 @@ function* scan(where, html) {
     if (/target="_blank"/i.test(tag) && !/rel="[^"]*noopener/i.test(tag))
       yield `${where}: target=_blank without rel=noopener: ${tag.slice(0, 70)}`;
   }
-  // ponytail: these last two passes still count with a raw regex rather than reading
-  // elements(), because one wants text and the other wants open/close pairs, and a quoted
-  // value holding `<div>` or a stray `<` is legal markup they will read wrong. Ceiling: a
-  // false "div unbalanced", or a raw `<` in copy pairing with the wrong `>`. Upgrade path is
-  // to have elements() yield the text spans and the `</name>` closings it walks past today.
-  // A lone '<' in copy (x < 5, <3) is markup the browser will reinterpret; copy must say
-  // &lt;. It cannot catch `a<b and c>`: that is a syntactically valid tag as far as HTML
-  // is concerned, and no amount of checking here will tell it apart from one.
-  const stripped = html.replace(/<[^>]*>/g, '').replace(/&[a-zA-Z#0-9]+;/g, '');
+  // Both of these read the text a browser sees, not the document as a string: a value holding
+  // `</p>` used to be counted as a closing tag (refusing valid markup), and a `<` written in an
+  // attribute value paired with a `>` somewhere else and vanished.
+  // It still cannot catch `a<b and c>`: that is a syntactically valid tag as far as HTML is
+  // concerned, and no amount of checking here will tell it apart from one.
+  const stripped = textOf(html).replace(/&[a-zA-Z#0-9]+;/g, '');
   const stray = stripped.match(/<[^>]*$/m);
   if (stray) yield `${where}: raw "<" in text (use &lt;): "${stripped.slice(Math.max(0, stray.index - 25), stray.index + 25).trim()}"`;
 
+  const closings = textOf(html);
   for (const tag of NEEDS_CLOSING) {
-    const open = (html.match(new RegExp(`<${tag}(?=[\\s>])`, 'gi')) || []).length;
-    const close = (html.match(new RegExp(`</${tag}>`, 'gi')) || []).length;
+    // openings from the elements the tokenizer found, closings from the text between them:
+    // neither can be faked by markup written inside an attribute value.
+    const open = [...elements(html)].filter((el) => new RegExp(`^<${tag}(?=[\\s>/])`, 'i').test(el.tag)).length;
+    const close = (closings.match(new RegExp(`</${tag}>`, 'gi')) || []).length;
     if (open !== close) yield `${where}: <${tag}> unbalanced (${open} open / ${close} closed)`;
   }
 }

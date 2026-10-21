@@ -16,14 +16,23 @@ node build.mjs        # writes dist/, and validates everything below
 `src/partials/{head,header,footer}.html`, copies `src/assets` and `src/styles.css`, and
 **fails without writing dist/** if a page has:
 
-* a missing or empty `src`/`href`/`srcset`/`poster` (any quoting style, any attribute case),
-  a directory where a file belongs, a `http://https://` URL, or a scheme with no host
+* a missing or empty `src`/`href`/`srcset`/`poster`/`<object data>`, in any quoting style and
+  any attribute case — including a `srcset` with more than one candidate, where every candidate
+  is checked and the build root-absolute-ises each one
+* a directory where a file belongs, a `http://https://` URL, or a scheme with no host
+* an attribute quote that never closes: everything after it parses as part of that value, so its
+  refs would be neither rewritten nor checked, and the page is broken in a browser too
 * a raw `<` in copy (write `&lt;`), which a browser would turn into a tag
 * `index.html` or `404.html` missing — a green build with no front page is possible
 * an `http://` link to a host that is not in `HTTP_ONLY` (hosts with no working TLS)
 * an `<img>` without `alt`, a `target="_blank"` without `rel="noopener"`
 * attributes glued together or duplicated (e.g. two `class=`), unbalanced tags
-* no `<h2>` to derive `<title>`, `og:title` and `og:description` from
+* no text in an `<h2>` to derive `<title>`, `og:title` and `og:description` from
+
+Every one of those reads the tag through one tokenizer (`elements()` + `attrPairs()`), which is
+also what the rewriter and the `<picture>` inserter use: a ref the checker can see is a ref the
+build can move, and `src=` written inside a value or in prose is text, checked as text and left
+alone. That shared grammar replaced three regexes that disagreed about what a tag is.
 
 Warnings that need a human: unused assets (with size), images without `width`/`height`,
 and leftover template copy such as "Insert text here".
@@ -85,9 +94,12 @@ is the whole explanation for "the old page is lighter": not a different font, th
 with weights it never had. If the fake bold bothers you more than the boldness, lower those
 five declarations to 400 (listed in the `@font-face` comment) rather than adding weights.
 
-What the checker does *not* do: tag balance is a count, so a `<p>` misnested inside another
-element that the browser repairs differently is out of scope, and `a<b and c>` in copy is
-indistinguishable from markup — that is why raw `<` is a failure.
+What the checker does *not* do: tag balance is a count of elements and closings, so a `<p>`
+misnested inside another element that the browser repairs differently is out of scope, and
+`a<b and c>` in copy is indistinguishable from markup — that is why raw `<` is a failure. And
+`url(...)` inside a `style` attribute or a `<style>` block is not a ref to anything here: a
+relative one in a page served at `/project/` will 404, and no check will say so. No page in
+`src/` uses either today.
 
 ## Preview locally
 
