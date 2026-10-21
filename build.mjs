@@ -93,27 +93,23 @@ const fill = (name, vars) => Object.entries(vars).reduce(
 function* elements(html) {
   for (let i = -1; (i = html.indexOf('<', i + 1)) >= 0;) {
     if (!/[a-zA-Z]/.test(html[i + 1] ?? '')) continue;      // `< 5`, `</p>`, `<!` are not tags
-    let j = i + 2, q = '', qPos = -1, afterEq = false, quotePast = -1;
+    let j = i + 2, q = '', qPos = -1, afterEq = false;
     for (; j < html.length; j++) {
       const c = html[j];
-      if (q) {
-        if (c === q) q = '';
-        else if (c === '>' && quotePast < 0) quotePast = j;   // this value spans a '>'
-      }
+      if (q) { if (c === q) q = ''; }                       // a '>' INSIDE a value is legal
       else if ((c === '"' || c === "'") && afterEq) { q = c; qPos = j; }
       else if (c === '>') break;
       else if (!/\s/.test(c)) afterEq = c === '=';
-      // An attribute quote that never closes is broken in the browser too - it swallows the
-      // markup that follows, which is how a check gets blinded and a rewriter gets skipped.
-      // End the element at the '>' the value ran past: the refs behind it still get rewritten
-      // and still get checked, and the author is told the quote is the reason.
-      if (quotePast >= 0) break;
     }
     // tag INCLUDES its '>', and end is the index after it: mapTags splices a replacement for
     // the whole element, and a span that left the '>' out of the tag but past it in `end`
     // would delete it - which is how every rewritten element lost its closing bracket.
     const end = Math.min(j + 1, html.length);
-    yield { start: i, end, tag: html.slice(i, end), badQuote: q ? (quotePast >= 0 ? quotePast : qPos) : -1 };
+    // badQuote is the one thing that genuinely blinds this file: a quote with no closing
+    // quote left in the document swallows every tag after it, so the refs behind it would be
+    // neither rewritten nor checked - which is the silent 404, not a lint. It is reported, and
+    // the page cannot ship. A '>' inside a closed value is ordinary markup and is not it.
+    yield { start: i, end, tag: html.slice(i, end), badQuote: q ? qPos : -1 };
     i = end - 1;
   }
 }
@@ -183,7 +179,7 @@ for (const route of pages) {
       for (const m of attrPairs(tag)) {
         if (!REF_ATTR.test(m[1])) continue;
         const raw = m[3], quote = /^['"]/.test(raw) ? raw[0] : '';
-        const value = quote ? raw.slice(1, -1) : raw;
+        const value = valueOf(raw);
         let fixed = null;
         if (/^srcset$/i.test(m[1])) {
           const cands = value.split(',').map((c) => c.trim()).filter(Boolean)
@@ -420,6 +416,11 @@ function* scan(where, html) {
     if (/target="_blank"/i.test(tag) && !/rel="[^"]*noopener/i.test(tag))
       yield `${where}: target=_blank without rel=noopener: ${tag.slice(0, 70)}`;
   }
+  // ponytail: these last two passes still count with a raw regex rather than reading
+  // elements(), because one wants text and the other wants open/close pairs, and a quoted
+  // value holding `<div>` or a stray `<` is legal markup they will read wrong. Ceiling: a
+  // false "div unbalanced", or a raw `<` in copy pairing with the wrong `>`. Upgrade path is
+  // to have elements() yield the text spans and the `</name>` closings it walks past today.
   // A lone '<' in copy (x < 5, <3) is markup the browser will reinterpret; copy must say
   // &lt;. It cannot catch `a<b and c>`: that is a syntactically valid tag as far as HTML
   // is concerned, and no amount of checking here will tell it apart from one.
