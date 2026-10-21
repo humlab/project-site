@@ -12,7 +12,7 @@
 // canonical rewrites and the cache headers only exist there, so a plain server can only
 // prove the pages load.
 import { chromium } from 'playwright';
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const BASE = process.argv[2] || 'http://localhost:8080';
@@ -20,21 +20,53 @@ const BASE = process.argv[2] || 'http://localhost:8080';
 // is what a container without rewrite rules actually serves at /<route> - and it is a
 // different document (root-absolute refs), which is how a broken srcset on /visp/ stayed
 // invisible while every /visp.html run passed.
-const pages = readdirSync('dist', { withFileTypes: true })
+let bad = 0;
+const entries = readdirSync('dist', { withFileTypes: true })
   .flatMap((d) => d.isFile() && d.name.endsWith('.html') && d.name !== '404.html' ? [d.name]
     : d.isDirectory() && existsSync(join('dist', d.name, 'index.html')) ? [`${d.name}/index.html`] : []);
+// A directory entry measures something only while the base hands out THAT document. Under
+// nginx.conf's canonical rewrites /<route>/index.html 301s to /<route> and try_files answers
+// dist/<route>.html - the bytes the .html entry loads anyway, which is how a LAYOUT line
+// could blame visp/index.html for a document nobody fetched, and one real bug count twice.
+// Decided from served bytes rather than the Server header: the deploy/proxy-showcase.conf
+// vhost answers `Server: nginx` and still serves the directory copy, so a header sniff would
+// drop the only base on which the container's own document gets measured.
+const pages = [], collapsed = [];
+for (const f of entries) {
+  if (!f.endsWith('/index.html')) { pages.push(f); continue; }
+  const route = f.slice(0, -'/index.html'.length);
+  let r = null;
+  try {
+    r = await fetch(`${BASE}/${f}`);
+  } catch { /* unreachable: the .html entry's goto will say so */ }
+  const body = r?.ok ? Buffer.from(await r.arrayBuffer()) : null;
+  if (body?.equals(readFileSync(join('dist', f)))) { pages.push(f); continue; }
+  // Not the directory document. If it landed on the canonical URL, the .html entry covers
+  // those bytes - and that landing is worth asserting on its own, since a rewrite pointing
+  // anywhere else is a bug this run would otherwise never notice.
+  const at = r ? new URL(r.url).pathname : null;
+  if (at && at !== `/${route}` && entries.includes(`${route}.html`)) {
+    bad++;
+    console.log(`  FAIL  ${f} -> ${r.status} ${at}: neither the directory document nor the canonical /${route}`);
+  }
+  collapsed.push(route);
+}
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
 // Two viewports: the responsive rules and most of the visitors are on phones.
 const VIEWPORTS = [['desktop', 1280, 900], ['mobile', 390, 844]];
-let bad = 0, allowed = 0;
+let allowed = 0;
 // ikt.humlab.umu.se serves the /rave video we hotlink. It is not our server, so a hiccup
 // there is counted but must not fail a deploy. demo.humlab.umu.se used to be here too: the
 // SEAD image sphere frame answered X-Frame-Options: deny, and the link is gone now, so a
 // new embed that will not render has to fail this gate, as it should.
 const ALLOWED = /ikt\.humlab\.umu\.se/;
-const page_ = () => (page.url().split('/').pop() || 'index');
+// The entry that was asked for, not the URL we ended up at: on a base with canonical
+// rewrites a directory entry lands on /<route>, where url().split('/').pop() is '' and all
+// 26 of them reported their failures under the name 'index'.
+let current = '(before the first load)';
+const page_ = () => current;
 
 const IGNORE_CONSOLE = [/compute-pressure/,];   // the YouTube player probes it; Chrome denies it cross-origin by default
 
@@ -117,6 +149,7 @@ page.on('response', (r) => {
 for (const [label, width, height] of VIEWPORTS) {
   await page.setViewportSize({ width, height });
   for (const file of pages) {
+    current = file;
     try {
       await page.goto(`${BASE}/${file}`, { waitUntil: 'load' });
       await page.waitForTimeout(200);   // let embeds and late requests report
@@ -134,6 +167,9 @@ const isNginx = /nginx/.test(four.headers.get('server') || '');
 console.log(`404.html direct request -> ${four.status}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
 if (isNginx && four.status < 400) { bad++; console.log('  FAIL  the error page answers with a success status'); }
 console.log(`${pages.length} pages x ${VIEWPORTS.length} viewports against ${BASE}, ${bad} problem(s)` +
-  ` (${allowed} of them the hotlinked /rave video host, which is not ours)`);
+  ` (${allowed} of them the hotlinked /rave video host, which is not ours)` +
+  (collapsed.length ? `\n  ${collapsed.length} directory URLs (${collapsed.join(' ')}) were not loaded: this base\n`
+    + '  redirects them onto the flat page, whose bytes the .html entries already measured.\n'
+    + '  Run against the container itself to measure the documents it actually serves.' : ''));
 await browser.close();
 process.exit(bad - allowed ? 1 : 0);
