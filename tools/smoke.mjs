@@ -31,25 +31,43 @@ const entries = readdirSync('dist', { withFileTypes: true })
 // Decided from served bytes rather than the Server header: the deploy/proxy-showcase.conf
 // vhost answers `Server: nginx` and still serves the directory copy, so a header sniff would
 // drop the only base on which the container's own document gets measured.
+// Every directory URL is probed before the browser starts, all at once: a server that accepts and
+// never answers then costs the phase one timeout instead of one per route. The number is the one
+// the fixers measured - worst probe 30 ms over the local dist, 56 ms against the live site - so
+// 5 s sits about 100x inside anything a working base does.
+const PROBE_TIMEOUT = 5000;
+const probeOne = async (f) => {
+  try {
+    const r = await fetch(`${BASE}/${f}`, { signal: AbortSignal.timeout(PROBE_TIMEOUT) });
+    // A trailing slash is the same route - the live site answers /aps/ directly, and a 302 there
+    // keeps the slash in the final URL, so comparing it to the route name needs one normalization.
+    return { status: r.status, at: new URL(r.url).pathname.replace(/\/$/, ''),
+      body: r.ok ? Buffer.from(await r.arrayBuffer()) : null };
+  } catch (e) {
+    return { err: e.name === 'TimeoutError' ? `no answer in ${PROBE_TIMEOUT / 1000}s`
+      : `${e.name}${e.cause?.code ? ' ' + e.cause.code : ''}` };
+  }
+};
+const probes = new Map(await Promise.all(entries.filter((f) => f.endsWith('/index.html'))
+  .map(async (f) => [f, await probeOne(f)])));
 const pages = [], collapsed = [];
 for (const f of entries) {
   if (!f.endsWith('/index.html')) { pages.push(f); continue; }
   const route = f.slice(0, -'/index.html'.length);
-  let r = null;
-  try {
-    r = await fetch(`${BASE}/${f}`);
-  } catch { /* unreachable: the .html entry's goto will say so */ }
-  const body = r?.ok ? Buffer.from(await r.arrayBuffer()) : null;
+  const { err, status, at, body } = probes.get(f);
   if (body?.equals(readFileSync(join('dist', f)))) { pages.push(f); continue; }
-  // Not the directory document. If it landed on the canonical URL, the .html entry covers
-  // those bytes - and that landing is worth asserting on its own, since a rewrite pointing
-  // anywhere else is a bug this run would otherwise never notice.
-  const at = r ? new URL(r.url).pathname : null;
-  if (at && at !== `/${route}` && entries.includes(`${route}.html`)) {
-    bad++;
-    console.log(`  FAIL  ${f} -> ${r.status} ${at}: neither the directory document nor the canonical /${route}`);
-  }
-  collapsed.push(route);
+  // The other benign outcome: a 200 at the canonical URL carrying the flat document's own bytes,
+  // which the .html entry goes on to measure. Anything else - a probe that threw, a timeout, a
+  // non-2xx, bytes that are neither document, a route with no flat sibling - means this run
+  // measured nothing at /<route>, and a gate must not exit 0 over documents it never loaded.
+  // Before this, a reset socket or a 301 that landed on a 500 was counted as a collapse: exit 0,
+  // "0 problem(s)", and the container's own directory documents never fetched.
+  const landing = status === 200 && at === `/${route}` && entries.includes(`${route}.html`)
+    && body?.equals(readFileSync(join('dist', `${route}.html`)));
+  if (landing) { collapsed.push(route); continue; }
+  bad++;
+  console.log(`  FAIL  ${f} -> ${err || `${status} ${at}`}: neither the directory document's bytes `
+    + `nor a 200 on the canonical /${route}. This run measured nothing at /${route}.`);
 }
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -162,14 +180,15 @@ for (const [label, width, height] of VIEWPORTS) {
 }
 // nginx canonicalises /404.html -> /404 -> 404; a plain static server has no such rule,
 // so only hold the server to it when it claims to be the production one.
-const four = await fetch(BASE + '/404.html');
-const isNginx = /nginx/.test(four.headers.get('server') || '');
-console.log(`404.html direct request -> ${four.status}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
+const four = await fetch(BASE + '/404.html', { signal: AbortSignal.timeout(PROBE_TIMEOUT) }).catch(() => null);
+const isNginx = /nginx/.test(four?.headers.get('server') || '');
+console.log(`404.html direct request -> ${four ? four.status : 'no answer'}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
 if (isNginx && four.status < 400) { bad++; console.log('  FAIL  the error page answers with a success status'); }
 console.log(`${pages.length} pages x ${VIEWPORTS.length} viewports against ${BASE}, ${bad} problem(s)` +
   ` (${allowed} of them the hotlinked /rave video host, which is not ours)` +
-  (collapsed.length ? `\n  ${collapsed.length} directory URLs (${collapsed.join(' ')}) were not loaded: this base\n`
-    + '  redirects them onto the flat page, whose bytes the .html entries already measured.\n'
+  (collapsed.length ? `\n  ${collapsed.length} directory URLs (${collapsed.join(' ')}) answered with the canonical\n`
+    + '  page instead of a directory document - verified 200s on /<route> with the flat bytes,\n'
+    + '  which the .html entries of this same run measure.\n'
     + '  Run against the container itself to measure the documents it actually serves.' : ''));
 await browser.close();
 process.exit(bad - allowed ? 1 : 0);
