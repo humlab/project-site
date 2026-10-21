@@ -263,46 +263,79 @@ if (cwebp) {
 }
 
 // ---------- checks ----------
+// What is markup and what is prose, decided by structure instead of by guessing an
+// attribute out of raw text: an element runs from '<' to the first '>' that is not inside a
+// quoted value (so a '>' in alt="a > b" does not end the tag, which is how the old per-tag
+// regex was blindable), and attributes are matched from outside the values, so a `src=x`
+// written inside a value or in text is text - it ships as text and no browser fetches it.
+function* elements(html) {
+  for (let i = -1; (i = html.indexOf('<', i + 1)) >= 0;) {
+    if (!/[a-zA-Z]/.test(html[i + 1] ?? '')) continue;      // `< 5`, `</p>`, `<!` are not tags
+    let j = i + 2, q = '';
+    for (; j < html.length; j++) {
+      const c = html[j];
+      if (q) { if (c === q) q = ''; }
+      else if (c === '"' || c === "'") q = c;
+      else if (c === '>') break;
+    }
+    // A quote that never closes would swallow every tag after it, hiding them from these
+    // checks. Name the page rather than passing quietly.
+    yield { tag: html.slice(i, j), broken: q !== '' };
+    i = j;
+  }
+}
+
+// name, the text around '=', the raw value token. A value is matched whole, so nothing
+// inside one can read as an attribute name.
+const attrPairs = (tag) => [...tag.matchAll(/([-\w]+)(\s*=\s*)("[^"]*"|'[^']*'|[^\s"'=<>]+)/g)];
+const REF_ATTR = /^(href|src|poster|data-src|srcset)$/i;   // what absolute() may have to move
+const valueOf = (raw) => (/^['"]/.test(raw) ? raw.slice(1, -1) : raw);
+
 const attrRefs = (tag) =>
   // srcset holds a comma list of "url 2x" pairs; <image> is a legacy alias of <img>.
-  [...tag.matchAll(/\b(?:href|src|poster|data-src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s">]+))/gi)]
-    .map((m) => m[1] ?? m[2] ?? m[3] ?? '')
-    .concat([...tag.matchAll(/\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)]
-      .flatMap((m) => (m[1] ?? m[2]).split(',').map((part) => part.trim().split(/\s+/)[0])));
+  attrPairs(tag).filter(([, name]) => REF_ATTR.test(name)).flatMap(([, name, , raw]) => {
+    const value = valueOf(raw);
+    return /^srcset$/i.test(name) && value !== ''
+      ? value.split(',').map((c) => c.trim().split(/\s+/)[0]).filter(Boolean)
+      : [value];
+  });
 
 function* scan(where, html) {
   html = html.replace(/<image(?=[\s>])/gi, '<img');
   // absolute() understands exactly one syntax: a lowercase src|href|poster|data-src|srcset
   // written name="value", and only the first candidate of a srcset. A relative ref written
-  // any other way is invisible to it - and an unquoted srcset is invisible to attrRefs too,
+  // any other way is invisible to it - and an unquoted srcset was invisible to attrRefs too,
   // so that one shipped green: dist/<page>/index.html with srcset=assets/x.png inside a page
   // served at /<page>/. Refuse the form instead of learning it - the site is hand-edited, and
   // a message naming the syntax and showing the fix is cheaper than a second parser to keep
-  // in step with the first. Run over the whole document, not per tag: a '>' inside quoted
-  // prose ends the tag regex, and a check that can be blinded by prose is not a gate.
-  // ponytail: prose that quotes `src=x` (a page documenting HTML) trips this; the upgrade
-  // path is an attribute tokenizer, which is what fixer A tried and it mangled alt text
-  // instead - fail closed on a build the author is looking at beats shipping a 404.
-  for (const m of html.matchAll(/(?<![-\w:])(href|src|poster|data-src|srcset)(\s*=\s*)("[^"]*"|'[^']*'|[^\s"'>]+)/gi)) {
-    const [, name, eq, raw] = m;
-    const value = /^['"]/.test(raw) ? raw.slice(1, -1) : raw;
-    if (value === '' || /^([a-zA-Z][\w+.-]*:|#|\/)/.test(value)) continue;   // nothing to absolutise
-    // An unquoted value is only a ref if it looks like a path: `<em>src=</em>` and
-    // "the src= attribute" are prose, and a gate that shouts at prose gets ignored.
-    const looksLikePath = raw[0] === '"' || raw[0] === "'" || (/^[\w./@%+-]+$/.test(value) && /[.]|\/(.+$)/.test(value));
-    if (!looksLikePath) continue;
-    if (eq !== '=' || raw[0] !== '"' || name !== name.toLowerCase()) {
-      yield `${where}: ${m[0]} is a relative ref in a form the build cannot make root-absolute `
-        + `(only lowercase src|href|poster|data-src|srcset written as name="value" are): ` +
-        `write ${name.toLowerCase()}="${value}"`;
-    }
-    const cands = /^srcset$/i.test(name) ? value.split(',').map((c) => c.trim()).filter(Boolean) : [];
-    if (cands.length > 1) {
-      yield `${where}: ${name}="${value}" has ${cands.length} candidates and only the first `
-        + `would be made root-absolute: write srcset="${cands[0].split(/\s+/)[0]}"`;
+  // in step with the first. Both this pass and attrRefs read the same elements()/attrPairs()
+  // tokenizer, so neither can be blinded by prose and neither disagrees about what a tag is.
+  for (const el of elements(html)) {
+    if (el.broken) { yield `${where}: unterminated attribute quote in ${el.tag.slice(0, 70)}`; continue; }
+    for (const [m, name, eq, raw] of attrPairs(el.tag)) {
+      if (!REF_ATTR.test(name)) continue;
+      const value = valueOf(raw);
+      if (value === '' || /^([a-zA-Z][\w+.-]*:|#|\/)/.test(value)) continue;   // nothing to absolutise
+      // An unquoted value is only a ref if it looks like a path, for the one case structure
+      // cannot settle: copy like `if x < 5 use src=assets/a.png` is a tag as far as a scanner
+      // is concerned, and there the gate would be shouting at prose.
+      const looksLikePath = raw[0] === '"' || raw[0] === "'" || (/^[\w./@%+-]+$/.test(value) && /[.]|\/(.+$)/.test(value));
+      if (!looksLikePath) continue;
+      if (eq !== '=' || raw[0] !== '"' || name !== name.toLowerCase()) {
+        yield `${where}: ${m} is a relative ref in a form the build cannot make root-absolute `
+          + `(only lowercase src|href|poster|data-src|srcset written as name="value" are): ` +
+          `write ${name.toLowerCase()}="${value}"`;
+      }
+      const cands = /^srcset$/i.test(name) ? value.split(',').map((c) => c.trim()).filter(Boolean) : [];
+      if (cands.length > 1) {
+        yield `${where}: ${name}="${value}" has ${cands.length} candidates and only the first `
+          + `would be made root-absolute: write srcset="${cands[0].split(/\s+/)[0]}"`;
+      }
     }
   }
-  for (const [tag] of html.matchAll(/<[a-zA-Z][^>]*>/g)) {
+  for (const el of elements(html)) {
+    if (el.broken) continue;                                // already reported above
+    const tag = el.tag;
     for (const ref of attrRefs(tag)) {
       const attr = /srcset/i.test(tag) ? 'srcset' : 'link';
       if (ref === '') { yield `${where}: empty src/href`; continue; }
