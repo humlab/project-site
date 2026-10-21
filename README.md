@@ -170,10 +170,11 @@ curl -sI https://showcase.humlab.umu.se/assets/past/past-map.jpg.webp | grep -i 
 ```
 
 That last line is part of the deploy, not a curiosity: request one generated `.webp` from
-the deployed site and require `image/webp`. A hardened front proxy adds
-`X-Content-Type-Options: nosniff`, and with `nosniff` in the response an image whose
-`Content-Type` is absent or wrong is not sniffed around — it is refused, and the page shows
-a hole where the picture is.
+the deployed site and require `image/webp`. What a missing `Content-Type` costs depends on
+the client: Chromium 156 renders the images even with `X-Content-Type-Options: nosniff`
+present (measured below), while clients that do not guess — wget, link-preview bots, feed
+readers — refuse them outright. Fixing the type is cheap; leaning on one browser's tolerance
+is not.
 
 Keep `dist/` as the rsync source: pointing it at the repo root would ship `.git` (118 MB)
 and `--delete` the rest of the web root.
@@ -181,13 +182,23 @@ and `--delete` the rest of the web root.
 Before believing a deploy, check what the front proxy already sends. Measured at the edge
 today (`curl -I https://showcase.humlab.umu.se/`, nginx 1.28 Ubuntu): `nosniff`,
 `X-Frame-Options: DENY`, `X-XSS-Protection`, `Referrer-Policy:
-no-referrer-when-downgrade` and HSTS, no CSP and no Cache-Control. So this block would send
-a second `Referrer-Policy` and a `X-Frame-Options` that disagrees with the CSP's
-`frame-ancestors`. Which copy a browser obeys is not a thing to rely on: `Referrer-Policy`
-is a single-value field, and RFC 9110 §5.3 calls a repeated single-value field malformed,
-so the safe move is to send one copy — `proxy_hide_header Referrer-Policy;
-proxy_hide_header Strict-Transport-Security;` at the proxy that fronts the container, and
-let the site block add only what the edge does not already send (CSP, cache).
+no-referrer-when-downgrade` and HSTS, no CSP and no Cache-Control. Whether a second copy of
+one of these is harmless depends on the field, and both directions were measured rather than
+assumed. For `X-Content-Type-Options`, Chromium obeys the **first** copy: a script served as
+`text/html` ran when the pair read `none, nosniff` and was blocked when it read
+`nosniff, none` — and nginx writes proxied headers before the outer server's own
+`add_header` output, so the `nosniff` this vhost adds is the one in force. `Referrer-Policy`
+behaves the other way: the Fetch spec takes the **last** value of the combined list, so on a
+200 the edge's weaker `no-referrer-when-downgrade` wins and ours is inert (measured by
+reading the `Referer` a subresource really sends, in both orders). Ours still earns its line
+because it carries `always` and the edge's does not: a 404 on the live site arrives with HSTS
+and nothing else, and with this vhost behind that same shape in a test rig the error page is
+the one response where our two copies are the only ones present. Making
+the 200s `no-referrer` is an edit to the edge, not to this file, and `proxy_hide_header` on
+the edge cannot do it either: it filters what arrives from upstream, so it deletes our copy
+and keeps its own. `Strict-Transport-Security` is not sent here at all: that is a claim about
+TLS, made by whatever terminates TLS. `X-Frame-Options: DENY` out there and
+`frame-ancestors 'none'` in here agree with each other, and neither of our files sends XFO.
 
 **Locked-down container** (`deploy/`). One name, three places: the image is
 `localhost/showcase_static`, and a quadlet whose `Image=` says anything else — `showcase_nginx`
@@ -220,7 +231,7 @@ header list, four `Content-Type` overrides, and a `proxy_intercept_errors` fetch
 `.webp` → `image/webp`, `.woff2` → `font/woff2`, one `Content-Type` per response (an
 `add_header` without `proxy_hide_header` appends a second one, which is worse than none),
 CSP present on the 301s as well as the 200s, `Cache-Control` differing for html, css and
-assets. `deploy/proxy-headers.conf` is that header list, included at three levels because
+assets. `deploy/proxy-headers.conf` is that header list, included at four levels because
 nginx inherits `add_header` per level and a location that sets one drops the inherited set —
 which is how CSP once disappeared from every `/assets/*` response here. What no proxy can
 give this container: a custom 404 page (visitors get busybox's), gzip, keep-alive, or
