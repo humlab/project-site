@@ -17,13 +17,17 @@ const HOLLOW = [/Welcome to nginx!/i, /Apache2 Ubuntu Default Page/i, /Plesk/i,
 const rows = [];
 for (const f of readdirSync('dist').filter((n) => n.endsWith('.html'))) {
   const html = readFileSync(`dist/${f}`, 'utf8');
-  for (const m of html.matchAll(/<a\b[^>]*href="(https?:\/\/[^"]+)"[^>]*>/gi)) {
+  // href= with either quote style, not `<a ... >` with a [^>]* in the middle: build.mjs now
+  // accepts `title="Open > in new tab"`, and this regex stopped at that '>' without noticing, so
+  // the link was never requested and a dead one could be reported as fine. No tag boundary to go
+  // blind at; the anchor text below still comes from the next </a>.
+  for (const m of html.matchAll(/<a\b(?:[^>'"]|'[^']*'|"[^"]*")*?href=(["'])(https?:\/\/[^"'\s]+)\1/gi)) {
     const end = html.indexOf('</a>', m.index);
     const text = html.slice(m.index + m[0].length, end).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     rows.push({
       page: f.replace('.html', ''),
       slot: /explore-button/.test(m[0]) ? 'BUTTON' : 'inline',
-      href: m[1],
+      href: m[2],  // 1 is the quote character
       text: text.slice(0, 32),
     });
   }
