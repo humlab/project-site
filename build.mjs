@@ -82,6 +82,62 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, 
 const fill = (name, vars) => Object.entries(vars).reduce(
   (html, [token, value]) => html.replaceAll(token, () => value), src(join('partials', name)));
 
+// ---------- tag syntax, one definition for the whole build ----------
+// An element runs from '<' + letter to the first '>' with no quote open, so a '>' written
+// inside alt="a > b" does not end the tag - and attributes are matched from outside the
+// values, so `src=x` inside a value or in text is text: it ships as text and no browser
+// fetches it. A quote only opens after '=' (`title=it's` is a value and then prose, which is
+// how a browser reads it too). Everything that reads or rewrites a tag goes through this: the
+// rewriter, the <picture> inserter, and every check. That is what makes "a ref a check can see
+// is a ref the build can move" true rather than a coincidence of two regexes agreeing.
+function* elements(html) {
+  for (let i = -1; (i = html.indexOf('<', i + 1)) >= 0;) {
+    if (!/[a-zA-Z]/.test(html[i + 1] ?? '')) continue;      // `< 5`, `</p>`, `<!` are not tags
+    let j = i + 2, q = '', qPos = -1, afterEq = false, quotePast = -1;
+    for (; j < html.length; j++) {
+      const c = html[j];
+      if (q) {
+        if (c === q) q = '';
+        else if (c === '>' && quotePast < 0) quotePast = j;   // this value spans a '>'
+      }
+      else if ((c === '"' || c === "'") && afterEq) { q = c; qPos = j; }
+      else if (c === '>') break;
+      else if (!/\s/.test(c)) afterEq = c === '=';
+      // An attribute quote that never closes is broken in the browser too - it swallows the
+      // markup that follows, which is how a check gets blinded and a rewriter gets skipped.
+      // End the element at the '>' the value ran past: the refs behind it still get rewritten
+      // and still get checked, and the author is told the quote is the reason.
+      if (quotePast >= 0) break;
+    }
+    // tag INCLUDES its '>', and end is the index after it: mapTags splices a replacement for
+    // the whole element, and a span that left the '>' out of the tag but past it in `end`
+    // would delete it - which is how every rewritten element lost its closing bracket.
+    const end = Math.min(j + 1, html.length);
+    yield { start: i, end, tag: html.slice(i, end), badQuote: q ? (quotePast >= 0 ? quotePast : qPos) : -1 };
+    i = end - 1;
+  }
+}
+
+// name, the text around '=', the raw value token. A value is matched whole, so nothing inside
+// one can read as an attribute name.
+const attrPairs = (tag) => [...tag.matchAll(/([-\w]+)(\s*=\s*)("[^"]*"|'[^']*'|[^\s"'=<>]+)/g)];
+// What absolute() may have to move. Suffix-anchored, because absolute() has always matched a
+// name at a word boundary: `data-srcset` and `xlink:href` do hold a ref a browser follows, and
+// a validator that ignored them would wave through the 404 the rewriter had just rewritten.
+const REF_ATTR = /(?:^|[-:])(href|src|poster|data-src|srcset)$/i;
+const valueOf = (raw) => (/^['"]/.test(raw) ? raw.slice(1, -1) : raw);
+const isRelative = (v) => v !== '' && !/^([a-zA-Z][\w+.-]*:|#|\/)/.test(v);
+
+// Rewrite the elements of a document in order; f(el) returns a replacement, or null to keep it.
+const mapTags = (html, f) => {
+  let out = '', last = 0;
+  for (const el of elements(html)) {
+    const rep = f(el);
+    if (rep !== null) { out += html.slice(last, el.start) + rep; last = el.end; }
+  }
+  return out + html.slice(last);
+};
+
 const built = new Map();
 // Pages whose refs absolute() made root-absolute, recorded by absolute() itself. The webp
 // pass and the checker both read this, so the two cannot disagree about which pages need a
@@ -93,7 +149,12 @@ for (const route of pages) {
     .replace(/href="\/([\w-]+)"/g, (m, r) => (routes.has(r) ? `href="${r}.html"` : m))
     .trim();
 
-  const heading = body.match(/<h2[^>]*>([\s\S]*?)<\/h2>/);
+  // Not /<h2[^>]*>/: a '>' in the heading's own text cuts that match short and the <title>
+  // gets derived from the wrong span of markup.
+  let h2End = -1;
+  for (const el of elements(body)) if (/^<h2\b/i.test(el.tag)) { h2End = el.end; break; }
+  const h2Close = h2End < 0 ? -1 : body.indexOf('</h2>', h2End);
+  const heading = h2Close < 0 ? null : [null, body.slice(h2End, h2Close)];
   if (!heading) problems.push(`src/pages/${route}.html: no <h2>, cannot derive <title>`);
   const text = heading
     ? decode(heading[1].replace(/<br\s*\/?>/gi, ' – ').replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim()
@@ -111,11 +172,32 @@ for (const route of pages) {
   // A 404 is rendered for the requested URL, so relative refs would resolve against a
   // directory that has no files in it (/deep/typo -> /deep/styles.css).
   // Root-absolute refs, for pages that are not served from the site root.
+  // Reads the same tokenizer every check reads, so it moves every form they can see: unquoted,
+  // single-quoted, spaced `=`, uppercase, and every candidate of a srcset rather than only the
+  // first. That is why the checks no longer have to refuse a syntax at all - and it cannot
+  // rewrite `src=` written inside a quoted value, which the old document-wide .replace did.
   const absolute = (key, h) => {
     servedAbs.add(key);
-    return h
-      .replace(/\b(src|href|poster|data-src)="(?!\/|#|[a-zA-Z]+:)/g, '$1="/')
-      .replace(/\bsrcset="(?!\/|#|[a-zA-Z]+:)/g, 'srcset="/');
+    return mapTags(h, ({ tag }) => {
+      let out = tag, shift = 0, moved = false;
+      for (const m of attrPairs(tag)) {
+        if (!REF_ATTR.test(m[1])) continue;
+        const raw = m[3], quote = /^['"]/.test(raw) ? raw[0] : '';
+        const value = quote ? raw.slice(1, -1) : raw;
+        let fixed = null;
+        if (/^srcset$/i.test(m[1])) {
+          const cands = value.split(',').map((c) => c.trim()).filter(Boolean)
+            .map((c) => { const [u, ...rest] = c.split(/\s+/); return [isRelative(u) ? `/${u}` : u, ...rest].join(' '); });
+          if (cands.length && cands.join(', ') !== value) fixed = cands.join(', ');
+        } else if (isRelative(value)) fixed = `/${value}`;
+        if (fixed === null) continue;
+        const at = m.index + m[0].lastIndexOf(raw);       // where the value token starts
+        out = out.slice(0, at + shift) + quote + fixed + quote + out.slice(at + shift + raw.length);
+        shift += fixed.length + quote.length * 2 - raw.length;
+        moved = true;
+      }
+      return moved ? out : null;
+    });
   };
 
   if (route === '404') {
@@ -198,14 +280,15 @@ if (cwebp) {
   // player, neither of which reads a <picture>), plus it skews the PSNR line below.
   const drawn = new Map();
   for (const html of built.values())
-    for (const tag of html.matchAll(/<img\b[^>]*>/gi)) {
-      const m = tag[0].match(/\bsrc="([^"]+)"/i);
+    for (const { tag } of elements(html)) {
+      if (!/^<img\b/i.test(tag)) continue;
+      const m = tag.match(/\bsrc="([^"]+)"/i);
       if (!m) continue;
       const ref = m[1].replace(/^\//, '');
       // .screenshot-cover marks the tile pictures and nothing else in this site. A picture
       // can be drawn both ways - the tile thumbnail and the full screenshot on its own page -
       // and then it needs both variants, because the choice belongs to the <img>, not the file.
-      const tile = /class="[^"]*\bscreenshot-cover\b/.test(tag[0]);
+      const tile = /class="[^"]*\bscreenshot-cover\b/.test(tag);
       const seen = drawn.get(ref) || { tile: false, page: false };
       drawn.set(ref, { tile: seen.tile || tile, page: seen.page || !tile });
     }
@@ -241,7 +324,11 @@ if (cwebp) {
     thumbCount++;
   }
   for (const [name, html] of built) {
-    built.set(name, html.replace(/<img\b[^>]*>/gi, (tag) => {
+    // mapTags, not /<img\b[^>]*>/gi: that regex ended a tag at the first '>', so a '>' inside
+    // alt="a > b" matched only `<img src="x.png" alt="a ` - and this wrapped the fragment,
+    // shipping a </picture> inserted inside an open tag.
+    built.set(name, mapTags(html, ({ tag }) => {
+      if (!/^<img\b/i.test(tag)) return null;
       const m = tag.match(/\bsrc="([^"]+)"/i);
       if (!m) return tag;
       const ref = m[1].replace(/^\//, '');
@@ -263,34 +350,6 @@ if (cwebp) {
 }
 
 // ---------- checks ----------
-// What is markup and what is prose, decided by structure instead of by guessing an
-// attribute out of raw text: an element runs from '<' to the first '>' that is not inside a
-// quoted value (so a '>' in alt="a > b" does not end the tag, which is how the old per-tag
-// regex was blindable), and attributes are matched from outside the values, so a `src=x`
-// written inside a value or in text is text - it ships as text and no browser fetches it.
-function* elements(html) {
-  for (let i = -1; (i = html.indexOf('<', i + 1)) >= 0;) {
-    if (!/[a-zA-Z]/.test(html[i + 1] ?? '')) continue;      // `< 5`, `</p>`, `<!` are not tags
-    let j = i + 2, q = '';
-    for (; j < html.length; j++) {
-      const c = html[j];
-      if (q) { if (c === q) q = ''; }
-      else if (c === '"' || c === "'") q = c;
-      else if (c === '>') break;
-    }
-    // A quote that never closes would swallow every tag after it, hiding them from these
-    // checks. Name the page rather than passing quietly.
-    yield { tag: html.slice(i, j), broken: q !== '' };
-    i = j;
-  }
-}
-
-// name, the text around '=', the raw value token. A value is matched whole, so nothing
-// inside one can read as an attribute name.
-const attrPairs = (tag) => [...tag.matchAll(/([-\w]+)(\s*=\s*)("[^"]*"|'[^']*'|[^\s"'=<>]+)/g)];
-const REF_ATTR = /^(href|src|poster|data-src|srcset)$/i;   // what absolute() may have to move
-const valueOf = (raw) => (/^['"]/.test(raw) ? raw.slice(1, -1) : raw);
-
 const attrRefs = (tag) =>
   // srcset holds a comma list of "url 2x" pairs; <image> is a legacy alias of <img>.
   attrPairs(tag).filter(([, name]) => REF_ATTR.test(name)).flatMap(([, name, , raw]) => {
@@ -302,40 +361,16 @@ const attrRefs = (tag) =>
 
 function* scan(where, html) {
   html = html.replace(/<image(?=[\s>])/gi, '<img');
-  // absolute() understands exactly one syntax: a lowercase src|href|poster|data-src|srcset
-  // written name="value", and only the first candidate of a srcset. A relative ref written
-  // any other way is invisible to it - and an unquoted srcset was invisible to attrRefs too,
-  // so that one shipped green: dist/<page>/index.html with srcset=assets/x.png inside a page
-  // served at /<page>/. Refuse the form instead of learning it - the site is hand-edited, and
-  // a message naming the syntax and showing the fix is cheaper than a second parser to keep
-  // in step with the first. Both this pass and attrRefs read the same elements()/attrPairs()
-  // tokenizer, so neither can be blinded by prose and neither disagrees about what a tag is.
+  // There is no "form the build cannot parse" any more: absolute() reads this exact grammar,
+  // so every ref a check can see is one the rewriter saw too, and a relative ref left in a
+  // page served below the site root is a bug in this file - the servedAbs rule below is what
+  // notices. What HTML itself does not forgive is named here, where it still can be.
   for (const el of elements(html)) {
-    if (el.broken) { yield `${where}: unterminated attribute quote in ${el.tag.slice(0, 70)}`; continue; }
-    for (const [m, name, eq, raw] of attrPairs(el.tag)) {
-      if (!REF_ATTR.test(name)) continue;
-      const value = valueOf(raw);
-      if (value === '' || /^([a-zA-Z][\w+.-]*:|#|\/)/.test(value)) continue;   // nothing to absolutise
-      // An unquoted value is only a ref if it looks like a path, for the one case structure
-      // cannot settle: copy like `if x < 5 use src=assets/a.png` is a tag as far as a scanner
-      // is concerned, and there the gate would be shouting at prose.
-      const looksLikePath = raw[0] === '"' || raw[0] === "'" || (/^[\w./@%+-]+$/.test(value) && /[.]|\/(.+$)/.test(value));
-      if (!looksLikePath) continue;
-      if (eq !== '=' || raw[0] !== '"' || name !== name.toLowerCase()) {
-        yield `${where}: ${m} is a relative ref in a form the build cannot make root-absolute `
-          + `(only lowercase src|href|poster|data-src|srcset written as name="value" are): ` +
-          `write ${name.toLowerCase()}="${value}"`;
-      }
-      const cands = /^srcset$/i.test(name) ? value.split(',').map((c) => c.trim()).filter(Boolean) : [];
-      if (cands.length > 1) {
-        yield `${where}: ${name}="${value}" has ${cands.length} candidates and only the first `
-          + `would be made root-absolute: write srcset="${cands[0].split(/\s+/)[0]}"`;
-      }
-    }
-  }
-  for (const el of elements(html)) {
-    if (el.broken) continue;                                // already reported above
     const tag = el.tag;
+    if (el.badQuote >= 0) {
+      yield `${where}: attribute quote never closes (line ${html.slice(0, el.badQuote).split('\n').length}) `
+        + `in ${tag.slice(0, 70)} - a browser reads the markup after it as part of that value`;
+    }
     for (const ref of attrRefs(tag)) {
       const attr = /srcset/i.test(tag) ? 'srcset' : 'link';
       if (ref === '') { yield `${where}: empty src/href`; continue; }
@@ -367,13 +402,15 @@ function* scan(where, html) {
       if (!distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
     }
   }
-  for (const [tag] of html.matchAll(/<[a-zA-Z][^>]*>/g)) {
+  for (const { tag } of elements(html)) {
     // A '"' that does not follow '=' closed the previous value, so an attribute name
     // right after it has no separating space. Values (viewport meta, font query
     // strings) must not be scanned for these.
     if (/(?<!=)"(?:href|src|alt|class|rel|title|target|width|height)\s*=/.test(tag))
       yield `${where}: attribute glued to the previous value in ${tag.slice(0, 70)}`;
-    const names = [...tag.replace(/="[^"]*"/g, '=""').matchAll(/([a-zA-Z-]+)=/g)].map((m) => m[1].toLowerCase());
+    // Both quote styles, or a value that quotes a ref in prose (`title='see src="a.png"'`)
+    // reads as a second src attribute and the page is refused for markup it does not have.
+    const names = [...tag.replace(/=(?:"[^"]*"|'[^']*')/g, '=""').matchAll(/([a-zA-Z-]+)=/g)].map((m) => m[1].toLowerCase());
     const dup = names.filter((n, i) => names.indexOf(n) !== i);
     if (dup.length) yield `${where}: duplicate ${dup[0]} attribute in ${tag.slice(0, 70)}`;
     if (/^<img\b/i.test(tag)) {
