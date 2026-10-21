@@ -69,6 +69,10 @@ const fill = (name, vars) => Object.entries(vars).reduce(
   (html, [token, value]) => html.replaceAll(token, () => value), src(join('partials', name)));
 
 const built = new Map();
+// Pages whose refs absolute() made root-absolute, recorded by absolute() itself. The webp
+// pass and the checker both read this, so the two cannot disagree about which pages need a
+// leading '/' - which is how 404.html's srcset was left relative while its src was not.
+const servedAbs = new Set();
 for (const route of pages) {
   const body = src(join('pages', `${route}.html`))
     // "/sead" -> "sead.html": relative links, so dist/ works from any root
@@ -93,15 +97,18 @@ for (const route of pages) {
   // A 404 is rendered for the requested URL, so relative refs would resolve against a
   // directory that has no files in it (/deep/typo -> /deep/styles.css).
   // Root-absolute refs, for pages that are not served from the site root.
-  const absolute = (h) => h
-    .replace(/\b(src|href|poster|data-src)="(?!\/|#|[a-zA-Z]+:)/g, '$1="/')
-    .replace(/\bsrcset="(?!\/|#|[a-zA-Z]+:)/g, 'srcset="/');
+  const absolute = (key, h) => {
+    servedAbs.add(key);
+    return h
+      .replace(/\b(src|href|poster|data-src)="(?!\/|#|[a-zA-Z]+:)/g, '$1="/')
+      .replace(/\bsrcset="(?!\/|#|[a-zA-Z]+:)/g, 'srcset="/');
+  };
 
   if (route === '404') {
     // Served for whatever was requested, so relative refs would resolve against a
     // directory with nothing in it (/deep/typo -> /deep/styles.css), and a canonical
     // would point crawlers at a URL that answers 404.
-    html = absolute(html)
+    html = absolute(`${route}.html`, html)
       .replace(/<link rel="canonical"[^>]*>\n?/, '')
       .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${ORIGIN}/">`);
   }
@@ -112,7 +119,7 @@ for (const route of pages) {
   // /sead/ on its own and serves the index. Refs must be root-absolute from there.
   // index.html is already at the root, and 404 has no meaningful directory form.
   if (route !== 'index' && route !== '404') {
-    let dirForm = absolute(html)
+    let dirForm = absolute(`${route}/index.html`, html)
       // point at the directory form too, so no server feature is needed to follow links.
       // index first: it has no /index/ directory, it is the root document.
       .replace(/href="\/index\.html"/g, 'href="/"')
@@ -228,12 +235,14 @@ if (cwebp) {
       // for the project page: 4.7 MB of the front page's weight was that mix-up.
       const to = (/class="[^"]*\bscreenshot-cover\b/.test(tag) ? tileTo : fullTo).get(ref);
       if (!to) return tag;
-      // The directory-form copy of a page (dist/sead/index.html, which is what a container
-      // serves at /sead/) already had its hrefs and srcs rewritten to root-absolute paths;
-      // a srcset inserted after that has to match, because a relative one resolves against
-      // /sead/ and 404s - and a failed <source> does NOT fall back to the <img>, the picture
-      // is simply gone. Live proof: /visp/ rendered 2 of its 9 images.
-      const abs = dirname(name) === '.' ? '' : '/';
+      // Every page in servedAbs had its hrefs and srcs rewritten to root-absolute paths
+      // before this loop runs - the directory-form copies a container serves at /sead/,
+      // and 404.html, which nginx renders at the URL that failed (/deep/typo), so nothing
+      // relative can resolve there. A srcset inserted after that pass has to match: a
+      // relative one 404s, and a failed <source> does NOT fall back to the <img> beside
+      // it, the picture is simply gone. Live proof: /visp/ showed 2 of 9 images, and every
+      // multi-segment 404 lost its header and footer logos.
+      const abs = servedAbs.has(name) ? '/' : '';
       return `<picture><source type="image/webp" srcset="${abs}${to}">${tag}</picture>`;
     }));
   }
@@ -268,11 +277,11 @@ function* scan(where, html) {
         continue;
       }
       const clean = join(ref.split('#')[0].split('?')[0]).replace(/^\.\//, '');
-      if (where.endsWith('/index.html')) {
-        // Nothing relative survives in a page served from a directory: it resolves against
-        // that directory. The build absolute-izes such pages, so a relative ref here means a
-        // reference inserted after that pass - the bug that hid broken images on /visp/.
-        yield `${where}: relative ${attr} "${ref}" in a directory-form page (would resolve against /${where.slice(0, -'index.html'.length)})`;
+      if (servedAbs.has(where)) {
+        // Nothing relative survives in a page served below the site root - a directory form,
+        // or the 404 rendered at the failing URL. absolute() covers both, so a relative ref
+        // here is one inserted after that pass: the bug behind /visp/ and the 404 logos.
+        yield `${where}: relative ${attr} "${ref}" in a page served below the site root (would resolve against /${where.replace(/[^/]*$/, '')})`;
         continue;
       }
       if (!distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
