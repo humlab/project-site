@@ -21,9 +21,19 @@ const BASE = process.argv[2] || 'http://localhost:8080';
 // different document (root-absolute refs), which is how a broken srcset on /visp/ stayed
 // invisible while every /visp.html run passed.
 let bad = 0;
+// Every page is built twice - visp.html and visp/index.html - and only the site root and the
+// error page (excluded above) are flat by design. A half-pair means dist is not a build output:
+// a partial rsync, a hand-edited deploy, a build killed halfway. Load the half that exists and
+// report nothing about the other is exactly how a gate stops being worth running.
 const entries = readdirSync('dist', { withFileTypes: true })
   .flatMap((d) => d.isFile() && d.name.endsWith('.html') && d.name !== '404.html' ? [d.name]
     : d.isDirectory() && existsSync(join('dist', d.name, 'index.html')) ? [`${d.name}/index.html`] : []);
+const unpaired = entries.filter((f) => f !== 'index.html' && !entries.includes(
+  f.endsWith('/index.html') ? f.slice(0, -'/index.html'.length) + '.html' : f.replace(/\.html$/, '/index.html')));
+if (unpaired.length) {
+  bad++;
+  console.log(`FAIL  dist/ is not this build's output: ${unpaired.join(', ')} has no twin`);
+}
 // A directory entry measures something only while the base hands out THAT document. Under
 // nginx.conf's canonical rewrites /<route>/index.html 301s to /<route> and try_files answers
 // dist/<route>.html - the bytes the .html entry loads anyway, which is how a LAYOUT line
@@ -191,4 +201,8 @@ console.log(`${pages.length} pages x ${VIEWPORTS.length} viewports against ${BAS
     + '  which the .html entries of this same run measure.\n'
     + '  Run against the container itself to measure the documents it actually serves.' : ''));
 await browser.close();
-process.exit(bad - allowed ? 1 : 0);
+// `bad - allowed` as a truthiness test is wrong in both directions: a surplus of tolerated
+// reports (a 403 on a video byte-range, which a healthy host sends) goes negative and fails a
+// clean run, while a subtraction can hide a real one. Tolerance may never add to, or subtract
+// below, the count of things that actually went wrong.
+process.exit(bad > allowed ? 1 : 0);
