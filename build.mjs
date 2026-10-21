@@ -294,8 +294,11 @@ function* scan(where, html) {
       if (ref === '') { yield `${where}: empty src/href`; continue; }
       if (/^http:\/\/https?:/.test(ref)) { yield `${where}: malformed link ${ref}`; continue; }
       if (/^https?:\/\/[/"]?$/i.test(ref)) { yield `${where}: link with a scheme and no host: "${ref}"`; continue; }
-      if (/^(https?:|mailto:|data:|#|\/)/.test(ref)) {
-        if (/^http:\/\//.test(ref)) {
+      // tel:/sms: are refs too. /i on both tests, together: browsers and mail clients follow
+      // TEL:, and case-insensitive here but case-sensitive below would let HTTP:// through as
+      // a scheme and skip the plain-http rule - a silent downgrade instead of an error.
+      if (/^(https?:|mailto:|tel:|sms:|data:|#|\/)/i.test(ref)) {
+        if (/^http:\/\//i.test(ref)) {
           let host = '';
           try { host = new URL(ref).hostname; } catch { yield `${where}: unparseable link ${ref}`; continue; }
           if (!httpAllowed(host)) yield `${where}: plain http link ${ref}`;
