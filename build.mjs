@@ -33,14 +33,28 @@ const src = (p) => read(join(SRC, p), 'utf8');
 
 // ---------- what dist/ will contain ----------
 const assets = [];
+const hidden = [];
 (function walk(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    // Nothing hidden under src/ is content: .DS_Store and AppleDouble sidecars from a mac
+    // that browsed the tree, .gitkeep relics. A wholesale copy has no opinion, so they
+    // shipped - assets/.gitkeep answered 200 on the live site until it was deleted, and the
+    // unused-asset warning below used to look the other way for exactly these names. If
+    // ACME ever wants /.well-known it arrives from the deploy side, not through dist.
+    if (entry.name.startsWith('.')) { hidden.push(join(dir, entry.name).slice(SRC.length + 1)); continue; }
     const p = join(dir, entry.name);
     entry.isDirectory() ? walk(p) : assets.push(p.slice(SRC.length + 1));
   }
 })(join(SRC, 'assets'));
 
-const pages = readdirSync(join(SRC, 'pages')).filter((f) => f.endsWith('.html')).map((f) => f.slice(0, -'.html'.length));
+const pageFiles = readdirSync(join(SRC, 'pages'));
+pageFiles.filter((f) => f.startsWith('.')).forEach((f) => hidden.push(`pages/${f}`));
+// A dotfile page used to become a route: dist/.scratch.html and dist/.scratch/index.html,
+// reachable at /.scratch, with nothing printed. The nav is hand-written so it did not leak
+// there, but the busybox container answers /.scratch/ with an index and is not hiding it.
+const pages = pageFiles.filter((f) => f.endsWith('.html') && !f.startsWith('.'))
+  .map((f) => f.slice(0, -'.html'.length));
+if (hidden.length) warnings.push(`not content, not copied, no route: ${hidden.join(', ')}`);
 // Without these the site is broken at / and every 404, and the checks below would stay green.
 for (const required of ['index', '404'])
   if (!pages.includes(required)) problems.push(`src/pages/${required}.html is missing`);
@@ -361,7 +375,7 @@ for (const [, img] of src('partials/head.html').matchAll(/property="og:image" co
 }
 
 for (const a of assets) {
-  if (basename(a).startsWith('.') || refs.has(a)) continue;
+  if (refs.has(a)) continue;
   warnings.push(`unused asset (${Math.round(statSync(join(SRC, a)).size / 1024)} kB): ${a}`);
 }
 for (const [where, html] of built)
@@ -385,7 +399,7 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(join(OUT, 'assets'), { recursive: true });
 cpSync(join(SRC, 'styles.css'), join(OUT, 'styles.css'));
 cpSync(join(SRC, 'favicon.ico'), join(OUT, 'favicon.ico'));
-cpSync(join(SRC, 'assets'), join(OUT, 'assets'), { recursive: true });
+cpSync(join(SRC, 'assets'), join(OUT, 'assets'), { recursive: true, filter: (from) => !basename(from).startsWith('.') });
 let webpFailed = 0, webpFrom = 0, webpTo = 0, worst = [999, ''];
 for (const j of jobs) {
   const from = j.from, out = j.to, to = join(OUT, out);
