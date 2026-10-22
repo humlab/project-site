@@ -467,7 +467,24 @@ function* scan(where, html) {
   // so every ref a check can see is one the rewriter saw too, and a relative ref left in a
   // page served below the site root is a bug in this file - the belowRoot rule below is what
   // notices. What HTML itself does not forgive is named here, where it still can be.
-  for (const el of elements(html)) {
+  // One tokenization, five readers: refs, shape, sizes, balance and the check below.
+  const els = [...elements(html)];
+  // A quote that opened by accident swallows the markup after it, and a browser agrees with us
+  // about that parse, so the `duplicate href` and `<div> unbalanced` that follow are true
+  // statements about the wreckage: six messages for one mistake, none of them naming it. A value
+  // holding a closing tag is the tell - quoting markup in prose (`alt="a > b"`,
+  // `title='see src="b.png"'`) never swallows a `</`.
+  const swallowedValue = els.flatMap((el) => el.body || el.badQuote >= 0 ? [] : attrPairs(el.tag)
+    .find(([v]) => v.includes('</')) ? [attrPairs(el.tag).find(([v]) => v.includes('</'))] : [])[0];
+  if (swallowedValue) {
+    const [value, name] = swallowedValue;
+    yield `${where}: ${name}= holds a closing tag ("${value.slice(0, 48)}…") - a quote opened where `
+      + `you did not intend one, and the markup after it is that attribute's value`;
+  }
+  // Whatever the cause, the counts below describe a document that was not parsed as written.
+  const markupSwallowed = !!swallowedValue
+    || els.some((el) => (el.body && el.unclosed) || el.badQuote >= 0);
+  for (const el of els) {
     const tag = el.tag;
     if (el.body) {
       // A raw-text element with no closing tag swallows the rest of the document: every ref
@@ -525,8 +542,8 @@ function* scan(where, html) {
       if (!distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
     }
   }
-  for (const { tag, body } of elements(html)) {
-    if (body) continue;
+  for (const { tag, body } of els) {
+    if (body || markupSwallowed) continue;
     // A '"' that does not follow '=' closed the previous value, so an attribute name
     // right after it has no separating space. Values (viewport meta, font query
     // strings) must not be scanned for these.
@@ -559,16 +576,12 @@ function* scan(where, html) {
 
   // openings from the elements the tokenizer found, closings from the text between them: neither
   // can be faked by markup written inside an attribute value or inside a <style> rule.
-  // One unclosed raw-text element eats everything after it, so the counts below are meaningless
-  // as well as the refs: the report above names the one error, and these would add four messages
-  // about a page whose problem is already stated.
-  const swallowed = [...elements(html)].some((el) => el.body && el.unclosed);
   const opened = {};
-  for (const { tag, body } of elements(html)) {
+  for (const { tag, body } of els) {
     const name = tagNameOf(tag).toLowerCase();
     if (name && !body) opened[name] = (opened[name] || 0) + 1;
   }
-  for (const tag of swallowed ? [] : NEEDS_CLOSING) {
+  for (const tag of markupSwallowed ? [] : NEEDS_CLOSING) {
     const open = opened[tag] || 0;
     const close = (text.match(new RegExp(`</${tag}>`, 'gi')) || []).length;
     if (open !== close) yield `${where}: <${tag}> unbalanced (${open} open / ${close} closed)`;
