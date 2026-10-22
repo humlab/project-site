@@ -477,8 +477,10 @@ function* scan(where, html) {
   let trapped;
   for (const el of els) {
     if (el.body || el.badQuote >= 0) continue;
+    // Anything that would fetch or navigate if it were really an element. `script` is absent on
+    // purpose: this site ships no script and CSP refuses it, so a swallowed one costs nothing.
     trapped = attrPairs(el.tag).find(([v]) =>
-      /<(?:img|source|video|audio|iframe|object|embed)\b[^>]*\b(?:src|srcset|poster|data)\s*=/i.test(v));
+      /<(?:a|img|source|video|audio|iframe|object|embed|link|track)\b[^>]*\b(?:href|src|srcset|poster|data)\s*=/i.test(v));
     if (trapped) break;
   }
   if (trapped) {
@@ -590,7 +592,9 @@ function* scan(where, html) {
   // A tag that opens inside an attribute value is not an opening tag, and the browser agrees, so
   // an unbalanced count with a `<` sitting in some value is almost always a forgotten quote rather
   // than a forgotten `</div>`. A hint, not a refusal: `title="6 < 7"` is legal and unremarkable.
-  const valueHoldsTag = els.some((el) => !el.body && attrPairs(el.tag).some(([v]) => /<\s*[a-zA-Z/]/.test(v)));
+  // No whitespace-skipping after the `<`: `< b` in `alt="a < b"` is not a tag start for a
+  // browser either, and a hint pointing at a cause that cannot have happened is worse than none.
+  const valueHoldsTag = els.some((el) => !el.body && attrPairs(el.tag).some(([v]) => /<[a-zA-Z/]/.test(v)));
   const quoteHint = valueHoldsTag ? ' (an attribute value holds a "<": if a quote opened by accident, everything after it is text)' : '';
   for (const tag of markupSwallowed ? [] : NEEDS_CLOSING) {
     const open = opened[tag] || 0;
