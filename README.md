@@ -253,8 +253,10 @@ CSP present on the 301s as well as the 200s, `Cache-Control` differing for html,
 assets. `deploy/proxy-headers.conf` is that header list, included at four levels because
 nginx inherits `add_header` per level and a location that sets one drops the inherited set —
 which is how CSP once disappeared from every `/assets/*` response here. What no proxy can
-give this container: a custom 404 page (visitors get busybox's), gzip, keep-alive, or
-Range-coalesced responses. For a host that is not quadlet-run, `nginx.conf` serves the same
+give this container: gzip, keep-alive, or Range-coalesced responses. (A custom 404 used to be on
+that list; the `proxy_intercept_errors` block above removed it — verified through a running proxy,
+where `GET /nope` answers 404 carrying the bytes of `dist/404.html`.) For a host that is not
+quadlet-run, `nginx.conf` serves the same
 `dist/` with all of those and needs nothing in front but TLS.
 
 ```sh

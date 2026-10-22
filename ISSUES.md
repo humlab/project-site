@@ -1,8 +1,8 @@
 # Issues, one line each
 
 Split out of the commit history so an issue can be read, reviewed or reverted on its own. `commit`
-is where the fix lives; `guard` is what fails the build or the gate if it comes back. Nothing here
-is pushed yet: 18 commits sit on `static-site` ahead of `origin/static-site`.
+is where the fix lives; `guard` is what fails the build or the gate if it comes back. The commits
+listed are on `static-site` ahead of `origin/static-site` (`git log --oneline origin/static-site..HEAD`).
 
 ## 1. A visitor sees the difference
 
