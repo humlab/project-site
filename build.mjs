@@ -469,21 +469,27 @@ function* scan(where, html) {
   // notices. What HTML itself does not forgive is named here, where it still can be.
   // One tokenization, five readers: refs, shape, sizes, balance and the check below.
   const els = [...elements(html)];
-  // A quote that opened by accident swallows the markup after it, and a browser agrees with us
-  // about that parse, so the `duplicate href` and `<div> unbalanced` that follow are true
-  // statements about the wreckage: six messages for one mistake, none of them naming it. A value
-  // holding a closing tag is the tell - quoting markup in prose (`alt="a > b"`,
-  // `title='see src="b.png"'`) never swallows a `</`.
-  const swallowedValue = els.flatMap((el) => el.body || el.badQuote >= 0 ? [] : attrPairs(el.tag)
-    .find(([v]) => v.includes('</')) ? [attrPairs(el.tag).find(([v]) => v.includes('</'))] : [])[0];
-  if (swallowedValue) {
-    const [value, name] = swallowedValue;
-    yield `${where}: ${name}= holds a closing tag ("${value.slice(0, 48)}…") - a quote opened where `
-      + `you did not intend one, and the markup after it is that attribute's value`;
+  // A quote that opened by accident swallows the markup after it, and the browser agrees with the
+  // parse: a swallowed `<img src=…>` is not an element, so it is silently never fetched and the
+  // page ships a hole. That damage is what to look for, not the `</` itself - a value may hold a
+  // closing tag on purpose (`alt="Type </div> to close"`, a JSON blob in data-*), which is valid
+  // HTML, and refusing it was tried and wrong.
+  let trapped;
+  for (const el of els) {
+    if (el.body || el.badQuote >= 0) continue;
+    trapped = attrPairs(el.tag).find(([v]) =>
+      /<(?:img|source|video|audio|iframe|object|embed)\b[^>]*\b(?:src|srcset|poster|data)\s*=/i.test(v));
+    if (trapped) break;
   }
-  // Whatever the cause, the counts below describe a document that was not parsed as written.
-  const markupSwallowed = !!swallowedValue
-    || els.some((el) => (el.body && el.unclosed) || el.badQuote >= 0);
+  if (trapped) {
+    yield `${where}: a fetching element is trapped inside ${trapped[1].replace(/\s+/g, ' ').slice(0, 58)}…`
+      + ` - a quote opened where you did not intend one, and a browser fetches none of it`;
+  }
+  // Tag counts describe a document that was not parsed as written. The per-element checks below
+  // stand down only for the element whose own quote broke, not for the page: a page-wide
+  // stand-down was tried first and it hid `<img> without alt` and the target=_blank rule behind an
+  // unrelated error.
+  const markupSwallowed = !!trapped || els.some((el) => el.body && el.unclosed);
   for (const el of els) {
     const tag = el.tag;
     if (el.body) {
@@ -542,8 +548,8 @@ function* scan(where, html) {
       if (!distFiles.has(clean)) yield `${where}: missing ${attr} "${ref}"`;
     }
   }
-  for (const { tag, body } of els) {
-    if (body || markupSwallowed) continue;
+  for (const { tag, body, badQuote } of els) {
+    if (body || badQuote >= 0) continue;
     // A '"' that does not follow '=' closed the previous value, so an attribute name
     // right after it has no separating space. Values (viewport meta, font query
     // strings) must not be scanned for these.
@@ -581,10 +587,15 @@ function* scan(where, html) {
     const name = tagNameOf(tag).toLowerCase();
     if (name && !body) opened[name] = (opened[name] || 0) + 1;
   }
+  // A tag that opens inside an attribute value is not an opening tag, and the browser agrees, so
+  // an unbalanced count with a `<` sitting in some value is almost always a forgotten quote rather
+  // than a forgotten `</div>`. A hint, not a refusal: `title="6 < 7"` is legal and unremarkable.
+  const valueHoldsTag = els.some((el) => !el.body && attrPairs(el.tag).some(([v]) => /<\s*[a-zA-Z/]/.test(v)));
+  const quoteHint = valueHoldsTag ? ' (an attribute value holds a "<": if a quote opened by accident, everything after it is text)' : '';
   for (const tag of markupSwallowed ? [] : NEEDS_CLOSING) {
     const open = opened[tag] || 0;
     const close = (text.match(new RegExp(`</${tag}>`, 'gi')) || []).length;
-    if (open !== close) yield `${where}: <${tag}> unbalanced (${open} open / ${close} closed)`;
+    if (open !== close) yield `${where}: <${tag}> unbalanced (${open} open / ${close} closed)${quoteHint}`;
   }
 }
 
