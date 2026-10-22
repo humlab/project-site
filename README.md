@@ -129,6 +129,7 @@ unpacked: `busybox httpd -f -p 8833 -h dist`.
 
 ```sh
 node build.mjs
+node tools/check-nginx.mjs                          # nginx -t on both config snippets
 npm i --no-save --no-package-lock playwright && npx playwright install chromium
 node tools/smoke.mjs http://127.0.0.1:8099      # every page, two viewports, both forms
 node tools/links.mjs                                      # needs network

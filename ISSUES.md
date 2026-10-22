@@ -41,13 +41,12 @@ a broken-image placeholder becoming a photograph is a large change; no layout mo
 | `.gitkeep` shipped as an asset; README claimed a winner between duplicate headers it had not measured | `19f942f` | dotfiles skipped in both passes; per-field measurement in README |
 | One owner per security header: HSTS removed from the site copy (the vhost terminates no TLS and `includeSubDomains` claimed hosts this repo does not control) | `30562bc` | README states who sets what and which wins, measured |
 | `assets/.gitkeep`-class dotfiles were either a route or a shipped asset, silently | `c932ac8` | `.`-prefixed names skipped in asset copy and page enumeration |
-| The proxy vhost `listen`ed on the socket the container binds (could not load), and the edge 404 was not ours | `1a3a313` | `nginx -t` in the deploy path; `proxy_intercept_errors` for the branded 404 |
+| The proxy vhost `listen`ed on the socket the container binds (could not load), and the edge 404 was not ours | `1a3a313` | `node tools/check-nginx.mjs` — wraps both http-level snippets and runs `nginx -t` (the socket listener and the edge's `upstream` are substituted for the test, since `-t` binds and must not connect) |
 
 ## 4. Open, from the last full review, not started
 
 | issue | why it is still open |
 |---|---|
-| README says a custom 404 arrives through the proxy in one place and that `proxy_intercept_errors` is needed for it in another | a contradiction someone has to resolve by reading both, or by measuring on the edge |
 | "the upstream may point elsewhere" comment in `deploy/proxy-showcase.conf` | contested: it is a comment about a future editor's config, not a bug |
 | duplicated measurement prose in README (same facts, two sections) | tidying, no behaviour |
 | `nginx.conf`'s "same value as" cross-reference | nit |
