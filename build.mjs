@@ -320,6 +320,13 @@ for (const { dir, prefix, lang, routes: pageRoutes } of langSets) {
     const svCurrent = lang === 'sv' ? ' aria-current="page"' : '';
     const desc = lang === 'sv' ? SITE_DESC_SV : SITE_DESC;
 
+    // The brand package ships the horizontal lockup per language, and the two files are
+    // different sizes, so the width/height that reserve the space travel with the name.
+    // Swedish pages wearing the English wordmark was invisible until someone read it.
+    const LOGO = lang === 'sv'
+      ? { '{{logo}}': 'assets/humlab_logo_left_se.png', '{{logoW}}': '2463', '{{logoH}}': '390' }
+      : { '{{logo}}': 'assets/humlab_logo_left_en.png', '{{logoW}}': '2245', '{{logoH}}': '376' };
+
     let html = (fill('head.html', {
       '{{title}}': esc(isIndex ? 'Humlab Showcase' : `${text} – Humlab Showcase`),
       '{{description}}': esc(isIndex ? desc : `${text} – ${desc}`),
@@ -331,12 +338,13 @@ for (const { dir, prefix, lang, routes: pageRoutes } of langSets) {
       '{{ogLocale}}': lang === 'sv' ? 'sv_SE' : 'en_US',
       '{{bodyClass}}': lang === 'sv' ? `page-sv-${route}` : `page-${route}`,
     }) + fill('header.html', {
+      ...LOGO,
       '{{homeUrl}}': homeUrl,
       '{{enUrl}}': enUrl,
       '{{svUrl}}': svUrl,
       '{{enCurrent}}': enCurrent,
       '{{svCurrent}}': svCurrent,
-    }) + '\n' + body + '\n' + src('partials/footer.html'))
+    }) + '\n' + body + '\n' + fill('footer.html', LOGO))
       .replace(/<!--[\s\S]*?-->/g, '');            // keep notes in the source, ship none
 
     if (lang === 'sv') html = absolute(html);
