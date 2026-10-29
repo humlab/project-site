@@ -50,4 +50,4 @@ a broken-image placeholder becoming a photograph is a large change; no layout mo
 | "the upstream may point elsewhere" comment in `deploy/proxy-showcase.conf` | contested: it is a comment about a future editor's config, not a bug |
 | duplicated measurement prose in README (same facts, two sections) | tidying, no behaviour |
 | `nginx.conf`'s "same value as" cross-reference | nit |
-| tile alt text and contrast (design review) | needs a human eye, not a reviewer subagent |
+| tile alt text (design review) | partly addressed in the redesign; still needs a human eye |

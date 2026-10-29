@@ -25,10 +25,20 @@ let bad = 0;
 // error page (excluded above) are flat by design. A half-pair means dist is not a build output:
 // a partial rsync, a hand-edited deploy, a build killed halfway. Load the half that exists and
 // report nothing about the other is exactly how a gate stops being worth running.
-const entries = readdirSync('dist', { withFileTypes: true })
-  .flatMap((d) => d.isFile() && d.name.endsWith('.html') && d.name !== '404.html' ? [d.name]
-    : d.isDirectory() && existsSync(join('dist', d.name, 'index.html')) ? [`${d.name}/index.html`] : []);
-const unpaired = entries.filter((f) => f !== 'index.html' && !entries.includes(
+const entries = [];
+for (const dir of ['dist', 'dist/sv']) {
+  const prefix = dir === 'dist' ? '' : 'sv/';
+  for (const d of readdirSync(dir, { withFileTypes: true })) {
+    if (d.isFile() && d.name.endsWith('.html')) {
+      if (d.name === '404.html') continue;
+      entries.push(prefix + d.name);
+    } else if (d.isDirectory() && existsSync(join(dir, d.name, 'index.html'))) {
+      entries.push(`${prefix}${d.name}/index.html`);
+    }
+  }
+}
+const isHome = (f) => f === 'index.html' || f === 'sv/index.html';
+const unpaired = entries.filter((f) => !isHome(f) && !entries.includes(
   f.endsWith('/index.html') ? f.slice(0, -'/index.html'.length) + '.html' : f.replace(/\.html$/, '/index.html')));
 if (unpaired.length) {
   bad++;
@@ -119,14 +129,14 @@ const geometry = () => page.evaluate(async () => {
   await new Promise(r => setTimeout(r, 450));
   scrollTo(0, 0);
   await document.fonts.ready.catch(() => {});
-  if (![...document.fonts].length || !document.fonts.check('100 16px Prompt'))
+  if (![...document.fonts].length || !document.fonts.check('400 16px Inter'))
     out.push('body font Prompt did not load');
-  for (const t of document.querySelectorAll('.project-grid-tile')) {
+  for (const t of document.querySelectorAll('.project-card')) {
     const { width: w, height: h } = R(t);
     const n = t.querySelector('h3')?.textContent.trim().slice(0, 20) ?? '?';
     if (h < 120 || w < 60) out.push(`tile "${n}" collapsed to ${Math.round(w)}x${Math.round(h)}`);
   }
-  const tiles = [...document.querySelectorAll('.project-grid-tile')];
+  const tiles = [...document.querySelectorAll('.project-card')];
   if (tiles.length > 5) {
     // Tripwire, not a measurement: how much of each tile's box its images actually paint.
     // It is a sloppy area (rowspans paint over neighbours, cover crops, a >1 value is
@@ -143,7 +153,7 @@ const geometry = () => page.evaluate(async () => {
       return a / (tb.width * tb.height);
     }).sort((a, b) => a - b);
     const med = cov[cov.length >> 1];
-    if (med < 0.3) out.push(`tile images paint only ${(med * 100).toFixed(0)}% of each tile (median) - something between .project-grid-tile and its <img> is the grid item`);
+    if (med < 0.3) out.push(`card images paint only ${(med * 100).toFixed(0)}% of each tile (median) - something between .project-card and its <img> is the grid item`);
   }
   for (const i of document.querySelectorAll('img')) {
     const f = (i.currentSrc || i.src).split('/').pop(), bb = R(i);

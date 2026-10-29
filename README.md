@@ -6,15 +6,19 @@ Plain HTML, one stylesheet, no JavaScript, no frameworks, no npm dependencies.
 The previous version was an Angular 11 + Ionic app whose 28 components contained zero
 dynamic behaviour; the machinery was only a source of breakage (see git history).
 
+It is a dual-language site with two static trees: English at `/` and Swedish at `/sv/`.
+The language switch is a link, not a script, so the CSP stays `script-src 'none'` and the
+minimal container keeps serving only bytes.
+
 ## Build
 
 ```sh
 node build.mjs        # writes dist/, and validates everything below
 ```
 
-`build.mjs` assembles `src/pages/*.html` (body fragments only) with
-`src/partials/{head,header,footer}.html`, copies `src/assets` and `src/styles.css`, and
-**fails without writing dist/** if a page has:
+`build.mjs` assembles `src/pages/*.html` (English) and `src/pages/sv/*.html` (Swedish)
+with `src/partials/{head,header,footer}.html`, copies `src/assets` and `src/styles.css`,
+and **fails without writing dist/** if a page has:
 
 * a missing or empty `src`/`href`/`srcset`/`poster`/`<object data>`, in any quoting style and
   any attribute case — including a `srcset` with more than one candidate, where every candidate
@@ -42,7 +46,7 @@ and leftover template copy such as "Insert text here".
 `<picture><source type="image/webp" srcset="..."><img src="..."></picture>`: no JS, and
 `dist/` still opens from a directory or a `file://` path. Measured on this tree: 78 files,
 20.8 MB of png/jpeg down to 5.8 MB, lowest All-PSNR 39.1 dB
-(`assets/infravis-sead/seadbugs-screenshot.png` thumbnail), `dist/` is 29 MB on disk.
+(`assets/infravis-sead/seadbugs-screenshot.png` thumbnail), `dist/` is 33 MB on disk.
 Everything smaller, and every SVG, is left alone.
 The encodes
 are generated, never committed: a stale `.webp` in git beside a hand-replaced png shows
@@ -69,30 +73,21 @@ and the two `<picture>` elements point at different ones — hence 78 files from
 image already under 768 px gets a single `.webp` serving both uses, and one under the 20 kB
 floor gets none: the markup would cost more than the bytes it saves.
 
-A `<picture>` is a box, and a box between a grid and its image changes the layout.
-`#main-grid-container picture { display: contents }` is what keeps a tile's `<img>` the grid
-item; delete that rule and every tile collapses to the image's attribute size (9d3a478 put
-the bug in, ef6c8fe took it out). It is scoped to the front page because the two rules that
-size an image with a percentage height are both front-page grid items — every other image in
-the site is sized by width, which a wrapper cannot collapse.
+A `<picture>` is a box. On the front-page cards it is a grid item of its own and the `<img>`
+fills it; on project pages the wrapper is sized by width, so it does not change the layout.
+The old rule `#main-grid-container picture { display: contents }` is gone because the new
+card markup sizes the media box, not the image's attribute dimensions.
 
 `<title>`/`og:` text comes from each page's `h2` (a `<br>` inside it becomes " – ").
-`<html lang>` comes from a `SWEDISH` set in `build.mjs`; `node tools/lang.mjs` prints how
-Swedish each page's text is so the set can be re-derived when pages change.
+`<html lang>` is set by the source directory: `src/pages/` is `en`, `src/pages/sv/` is `sv`.
+The build rejects a route that exists in one tree but not the other.
 
-Fonts are self-hosted (`src/assets/fonts`, two files, latin subset): no font request leaves
-the server, so no visitor IP goes to Google and the typography survives Google being down
-or blocked. Re-add a `fonts.googleapis.com` `<link>` and CSP entry only if you prefer not
-to.
-
-Prompt is served at **weight 100, one face**, because that is all the original `@import`
-requested (`Prompt:ital,wght@0,100;1,300`). Everything thin you see is that single face, and
-the handful of `font-weight: bold` rules are the browser faking an outline around it. Serving
-400 and 700 instead — which is what an earlier commit here did, reasonably enough — makes
-those rules mean what they say, and the site comes out bolder than the one it replaced. That
-is the whole explanation for "the old page is lighter": not a different font, the same font
-with weights it never had. If the fake bold bothers you more than the boldness, lower those
-five declarations to 400 (listed in the `@font-face` comment) rather than adding weights.
+Fonts are self-hosted (`src/assets/fonts`, one Latin-subset Inter variable file covering
+weights 400–700): no font request leaves the server, so no visitor IP goes to Google and
+the typography survives Google being down or blocked. Inter is a widely used modern UI
+font, which is why the card titles and body text no longer look like the old geometric
+Prompt face. The decorative Harlow Solid, WendyOne and Italianno faces used by the old
+design are gone; the project logos are images.
 
 What the checker does *not* do: tag balance is a count of elements and closings, so a `<p>`
 misnested inside another element that the browser repairs differently is out of scope, and
@@ -137,12 +132,12 @@ node tools/links.mjs                                      # needs network
 
 `tools/smoke.mjs` loads every built page in headless Chromium and reports console errors,
 failed requests, non-200 responses, CSP violations, and whether `/404.html` stays non-200.
-It exits non-zero and can gate a deploy. Each page is two documents, so a bare static server sees
-53 loads; under `nginx.conf`'s canonical rewrites it loads 27 and proves the other 26 directory
-URLs answer on the canonical URL with the flat document's own bytes, and says so in the report. A
-directory probe that errors, times out, or returns anything else fails the run: those are the
-container's own documents, and a gate that skips them and exits 0 is not a gate. It fails on a page
-built in one form and not the other, because that `dist/` is not a build output. One report is
+It exits non-zero and can gate a deploy. Each route is built in both flat and directory forms and
+in both languages; under `nginx.conf`'s canonical rewrites the directory probes land on the
+canonical page with the flat document's own bytes, and both trees are measured. A directory probe
+that errors, times out, or returns anything else fails the run: those are the container's own
+documents, and a gate that skips them and exits 0 is not a gate. It fails on a page built in one
+form and not the other, because that `dist/` is not a build output. One report is
 tolerated: `ikt.humlab.umu.se`, whose mp4 `/rave` hotlinks, is not our server, so a failure there
 is counted and shown but cannot fail the run — tolerance is a ceiling on what may be ignored,
 never a credit that cancels somebody else's failure. Anything else does —
@@ -161,14 +156,16 @@ clients) — check from somewhere else before deleting a link because of it.
 
 ## Adding or changing a project page
 
-1. Add `src/pages/<route>.html` containing the body only (copy an existing page:
-   `h2.sub-header` + `div.main-container` + left/right containers). The file name becomes
-   the URL (`/sead`), the `<h2>` becomes the page title.
-2. Link it from the front page: `<a href="<route>">` in `src/pages/index.html` is rewritten
-   to a relative link at build time, and the checker fails if the route does not exist. The
-   grid is newest-first, so a new project's tile goes at the top of it.
-3. Put images in `src/assets/<route>/` with `width`/`height` attributes (the build warns
-   about images that lack them) and `loading="lazy"` unless they are above the fold.
+1. Add `src/pages/<route>.html` and `src/pages/sv/<route>.html`, both containing the body
+   only (copy an existing page: `h2.sub-header` + `div.main-container` + left/right
+   containers). The file name becomes the URL (`/sead`, `/sv/sead`), the `<h2>` becomes the
+   page title. The build fails if the route is missing from either tree.
+2. Link it from both front pages: `<a href="/<route>">` in `src/pages/index.html` is
+   rewritten to a relative link for English; the same link in `src/pages/sv/index.html` is
+   rewritten to `/sv/<route>` for Swedish. The checker fails if the route does not exist.
+   The grid is newest-first, so a new project's card goes at the top of it.
+3. Put images in `src/assets/<route>/` with `width`/`height` attributes and `loading="lazy"`
+   unless they are above the fold.
 4. Styles: `src/styles.css`, plain CSS with custom properties at the top — no
    preprocessor, the old `.scss` files were flat enough not to need one.
 
@@ -180,7 +177,9 @@ production uses.
 **nginx.** `nginx.conf` is the server block (`/etc/nginx/conf.d/default.conf` in the stock
 nginx image — TLS, HTTP/2 and HSTS belong to the front proxy that hands it
 `unix:/socket/nginx.sock`). The canonical URLs, the security headers, the cache map and the
-404 page live in that file: without it `/sead` is a 404 and there is no CSP.
+404 page live in that file: without it `/sead` and `/sv/sead` are 404s and there is no CSP.
+The `/sv/` root is kept as a directory: the generic slash-strip rule has an explicit `/sv/`
+exception, and a missing Swedish page serves the Swedish `sv/404.html`.
 
 ```sh
 node build.mjs && node tools/links.mjs
@@ -304,9 +303,8 @@ deploy/sample-run.sh   # build + start the container on 127.0.0.1:9712 (site bui
 * The /rave poster is a frame grabbed at t=30 s. It shows the room, nobody objected, and it
   is not a chosen image. `src/pages/rave.html` carries the TODO; replacing
   `assets/rave+c-rave/rave-poster.jpg` under the same name is enough (60 kB, 1280x720).
-* The seven clearly Swedish pages set `lang="sv"`. Mixed ones (`staden` ~0.65 Swedish,
-  `rave`, `westac`, `linguistic-landscape`, `digitalamodeller`, `queer-ai`) still inherit
-  `lang="en"` with `span.sv` blocks, which is correct only if those spans all carry `lang`.
+* Language mode is now a URL tree, not a `span.sv` block: English pages live at `/route`
+  and Swedish pages at `/sv/route`. The build rejects a route present in only one tree.
 * `/ships` is reachable but not linked: it has no tile on the front page at all — the
   commented-out one that came over with the migration (pointing at an image that no longer
   existed) is deleted. Either finish the copy or delete the page.
@@ -316,8 +314,9 @@ deploy/sample-run.sh   # build + start the container on 127.0.0.1:9712 (site bui
 * `/enida` says "Read more about the project" and links newnatures.org, which redirects to a
   Greenhouse Book Talks page. The old link was a 404 path on the same domain; someone who
   knows the project should either name the right URL or drop the sentence.
-* Contrast: white on `--accent-2` (#c95100) sits at ~4.4:1, and the `.infravis` tag label
-  is white on a yellow-red gradient. Public-sector WCAG wants 4.5:1 for body text.
+* Contrast is now measured against the new palette: `#a54d16` on `#f6f3ec` is 5.2:1,
+  `#5b6466` on `#f6f3ec` is 5.5:1 and white on `#0f5f68` is 7.2:1. The InfraVis chip is
+  a solid light-plum border/text pair rather than white on a gradient.
 * The `.mp4` on /visp has no captions (`<track>`), relevant under the Accessibility Act.
 * 23 MB of images (down from 59 MB: `pngquant --quality=80-` + `jpegoptim --max=78`, applied
   in place, nothing resized). Most of what is left is still larger than it is drawn: 87% of

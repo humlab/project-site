@@ -21,12 +21,9 @@ const NEEDS_CLOSING = ['div', 'section', 'article', 'main', 'p', 'ul', 'ol', 'li
 // buttons removed — see the note in README.)
 const HTTP_ONLY = ['ships.ddb.umu.se', 'digitalhumanities.lv'];
 const httpAllowed = (host) => HTTP_ONLY.some((h) => host === h || host.endsWith(`.${h}`));
-// Pages written predominantly in Swedish (see tools/lang.mjs for how this was measured).
-// Screen readers pick the pronunciation from html lang; a wrong one reads Swedish with an
-// English voice. Blocks inside English pages use <span class="sv" lang="sv">.
-const SWEDISH = new Set([
-  'aps', 'dialectical-imaginaries', 'digibon', 'melody', 'umanista', 'utopia', 'yrkesrum',
-]);
+// The Swedish mode is a separate static tree under /sv/, so the language is a property
+// of the source directory, not of a set of route names.
+const SITE_DESC_SV = 'Humlab vid Umeå universitet visar pågående och avslutade projekt.';
 
 const problems = [], warnings = [], unsized = [];
 const src = (p) => read(join(SRC, p), 'utf8');
@@ -47,19 +44,34 @@ const hidden = [];
   }
 })(join(SRC, 'assets'));
 
-const pageFiles = readdirSync(join(SRC, 'pages'));
-pageFiles.filter((f) => f.startsWith('.')).forEach((f) => hidden.push(`pages/${f}`));
+const pageFiles = readdirSync(join(SRC, 'pages'), { withFileTypes: true });
+pageFiles.filter((e) => e.name.startsWith('.')).forEach((e) => hidden.push(`pages/${e.name}`));
 // A dotfile page used to become a route: dist/.scratch.html and dist/.scratch/index.html,
 // reachable at /.scratch, with nothing printed. The nav is hand-written so it did not leak
 // there, but the busybox container answers /.scratch/ with an index and is not hiding it.
-const pages = pageFiles.filter((f) => f.endsWith('.html') && !f.startsWith('.'))
-  .map((f) => f.slice(0, -'.html'.length));
+const pages = pageFiles.filter((e) => e.isFile() && e.name.endsWith('.html') && !e.name.startsWith('.'))
+  .map((e) => e.name.slice(0, -'.html'.length));
+const svDir = join(SRC, 'pages', 'sv');
+const svFiles = readdirSync(svDir, { withFileTypes: true });
+svFiles.filter((e) => e.name.startsWith('.')).forEach((e) => hidden.push(`pages/sv/${e.name}`));
+const svPages = svFiles.filter((e) => e.isFile() && e.name.endsWith('.html') && !e.name.startsWith('.'))
+  .map((e) => e.name.slice(0, -'.html'.length));
 if (hidden.length) warnings.push(`not content, not copied, no route: ${hidden.join(', ')}`);
 // Without these the site is broken at / and every 404, and the checks below would stay green.
 for (const required of ['index', '404'])
   if (!pages.includes(required)) problems.push(`src/pages/${required}.html is missing`);
+for (const required of ['index', '404'])
+  if (!svPages.includes(required)) problems.push(`src/pages/sv/${required}.html is missing`);
+const missingSv = pages.filter((r) => !svPages.includes(r));
+const extraSv = svPages.filter((r) => !pages.includes(r));
+if (missingSv.length) problems.push(`no Swedish page for: ${missingSv.join(', ')}`);
+if (extraSv.length) problems.push(`Swedish page without English counterpart: ${extraSv.join(', ')}`);
 const routes = new Set(pages);
-const distFiles = new Set([...assets, 'styles.css', 'favicon.ico', ...pages.map((r) => `${r}.html`)]);
+const distFiles = new Set([...assets, 'styles.css', 'favicon.ico']);
+for (const r of pages) { distFiles.add(`${r}.html`); distFiles.add(r); }
+for (const r of svPages) { distFiles.add(`sv/${r}.html`); distFiles.add(`sv/${r}`); }
+distFiles.add('sv/index.html');
+distFiles.add('sv/');
 // /sead/ resolves to /sead/index.html in a server without rewrites; the checker has to
 // agree that such a file will exist - and it has to know both spellings, because the
 // directory form of every page links its siblings as /sead/. Register the file only and the
@@ -69,6 +81,11 @@ for (const r of routes) {
   if (r === 'index' || r === '404') continue;
   distFiles.add(`${r}/index.html`);
   distFiles.add(`${r}/`);
+}
+for (const r of svPages) {
+  if (r === 'index' || r === '404') continue;
+  distFiles.add(`sv/${r}/index.html`);
+  distFiles.add(`sv/${r}/`);
 }
 
 // ---------- assemble ----------
@@ -254,68 +271,102 @@ const built = new Map();
 // relative while its src was not: forget the argument once and both the insert and the rule
 // that would have refused it go blind together, silently.
 const belowRoot = (name) => name === '404.html' || name.includes('/');
-for (const route of pages) {
-  // "/sead" -> "sead.html": relative links, so dist/ works from any root. Through setAttr,
-  // because the document-wide regex this replaces rewrote `href="/past"` wherever those six
-  // bytes appeared - in a title, in a <code> sample, in a <style> selector - and shipped it.
-  const toFile = (h) => setAttr(h, 'href', (v) => {
-    const m = /^\/([\w-]+)$/.exec(v);
-    return m && routes.has(m[1]) ? `${m[1]}.html` : null;
-  });
-  const body = toFile(src(join('pages', `${route}.html`))).trim();
+const langSets = [
+  { dir: 'pages', prefix: '', lang: 'en', routes: pages },
+  { dir: join('pages', 'sv'), prefix: 'sv/', lang: 'sv', routes: svPages },
+];
 
-  // The <title> comes out of the first <h2>. Comments go first: a commented-out <h2> above the
-  // real one used to win, and ship its text as the page title and the og:description. Then the
-  // element walk, because /<h2[^>]*>/ ends at a '>' inside the heading's own attributes; and the
-  // tags inside it are deleted by mapTags, the same walk textOf() uses - a raw
-  // <[^>]*> ate `title="a > b"` and shipped ` b">` in the title.
-  const uncommented = body.replace(/<!--[\s\S]*?-->/g, '');
-  let h2End = -1;
-  for (const el of elements(uncommented)) if (/^<h2\b/i.test(el.tag)) { h2End = el.end; break; }
-  const h2Close = h2End < 0 ? -1 : uncommented.indexOf('</h2>', h2End);
-  let text = h2Close < 0 ? '' : decode(
-    mapTags(uncommented.slice(h2End, h2Close).replace(/<br\s*\/?>/gi, ' – '), () => '')
-  ).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-  if (!text) problems.push(`src/pages/${route}.html: no text in an <h2>, cannot derive <title>`);
-  text ||= route;
-  const isIndex = route === 'index';
-  let html = (fill('head.html', {
-    '{{title}}': esc(isIndex ? 'Humlab Showcase' : `${text} – Humlab Showcase`),
-    '{{description}}': esc(isIndex ? SITE_DESC : `${text} – ${SITE_DESC}`),
-    '{{ogUrl}}': isIndex ? `${ORIGIN}/` : `${ORIGIN}/${route}`,
-    '{{origin}}': ORIGIN,
-    '{{lang}}': SWEDISH.has(route) ? 'sv' : 'en',
-    '{{route}}': route,
-  }) + src('partials/header.html') + '\n' + body + '\n' + src('partials/footer.html'))
-    .replace(/<!--[\s\S]*?-->/g, '');            // keep notes in the source, ship none
-  if (route === '404') {
-    // Served for whatever was requested, so relative refs would resolve against a
-    // directory with nothing in it (/deep/typo -> /deep/styles.css), and a canonical
-    // would point crawlers at a URL that answers 404.
-    html = absolute(html)
-      .replace(/<link rel="canonical"[^>]*>\n?/, '')
-      .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${ORIGIN}/">`);
-    // The two lines above are the build's last regexes over markup it does not own, and they
-    // match our own head partial in one known order. If that order is ever changed they fail
-    // silently - a canonical pointing at a URL that answers 404, an og:url pointing at /404 -
-    // so check they did their job instead of trusting the shape.
-    if (/<link[^>]*rel="canonical"/i.test(html)) problems.push('src/pages/404.html: a canonical survived into the 404 page');
-    if (/og:url"[^>]*404|404[^>]*og:url/i.test(html)) problems.push('src/pages/404.html: og:url still points at the 404');
-  }
-  built.set(`${route}.html`, html);
+const toFile = (h) => setAttr(h, 'href', (v) => {
+  const m = /^\/([\w-]+)$/.exec(v);
+  return m && routes.has(m[1]) ? `${m[1]}.html` : null;
+});
 
-  // The same page under /sead/index.html, so a server without rewrite rules (the busybox
-  // container in deploy/) can answer the canonical /sead at all: it redirects /sead to
-  // /sead/ on its own and serves the index. Refs must be root-absolute from there.
-  // index.html is already at the root, and 404 has no meaningful directory form.
-  if (route !== 'index' && route !== '404') {
-    let dirForm = setAttr(setAttr(absolute(html), 'href', (v) =>          // and point at the
-      v === '/index.html' ? '/' : null),                             // directory form too, so
-      'href', (v) => {                                               // no server feature is
-        const m = /^\/([\w-]+)\.html$/.exec(v);                       // needed to follow links.
-        return m && routes.has(m[1]) ? `/${m[1]}/` : null;
+for (const { dir, prefix, lang, routes: pageRoutes } of langSets) {
+  for (const route of pageRoutes) {
+    const isIndex = route === 'index';
+    let body = src(join(dir, `${route}.html`)).trim();
+    if (lang === 'en') {
+      // Relative links, so dist/ works from a directory or a file:// path.
+      body = toFile(body);
+    } else {
+      // Cross-page links in the Swedish tree stay in the Swedish tree.
+      body = setAttr(body, 'href', (v) => {
+        if (v === 'index.html' || v === 'index' || v === './index.html') return '/sv/';
+        const m = /^\/([\w-]+)$/.exec(v);
+        return m && routes.has(m[1]) ? `/sv/${m[1]}` : null;
       });
-    built.set(`${route}/index.html`, dirForm);
+    }
+
+    // The <title> comes out of the first <h2>. Comments go first: a commented-out <h2> above
+    // the real one used to win; then the element walk, because the tags inside it must be
+    // deleted the same way textOf() reads them.
+    const uncommented = body.replace(/<!--[\s\S]*?-->/g, '');
+    let h2End = -1;
+    for (const el of elements(uncommented)) if (/^<h2\b/i.test(el.tag)) { h2End = el.end; break; }
+    const h2Close = h2End < 0 ? -1 : uncommented.indexOf('</h2>', h2End);
+    let text = h2Close < 0 ? '' : decode(
+      mapTags(uncommented.slice(h2End, h2Close).replace(/<br\s*\/?>/gi, ' – '), () => '')
+    ).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    if (!text) problems.push(`${dir}/${route}.html: no text in an <h2>, cannot derive <title>`);
+    text ||= route;
+
+    const canonical = isIndex ? `${ORIGIN}/${prefix}` : `${ORIGIN}/${prefix}${route}`;
+    const altEn = isIndex ? `${ORIGIN}/` : `${ORIGIN}/${route}`;
+    const altSv = isIndex ? `${ORIGIN}/sv/` : `${ORIGIN}/sv/${route}`;
+    const homeUrl = lang === 'sv' ? '/sv/' : 'index.html';
+    const enUrl = lang === 'sv' ? (isIndex ? '/' : `/${route}`) : (isIndex ? 'index.html' : `${route}.html`);
+    const svUrl = lang === 'sv' ? (isIndex ? '/sv/' : `/sv/${route}`) : (isIndex ? 'sv/' : `sv/${route}`);
+    const enCurrent = lang === 'en' ? ' aria-current="page"' : '';
+    const svCurrent = lang === 'sv' ? ' aria-current="page"' : '';
+    const desc = lang === 'sv' ? SITE_DESC_SV : SITE_DESC;
+
+    let html = (fill('head.html', {
+      '{{title}}': esc(isIndex ? 'Humlab Showcase' : `${text} – Humlab Showcase`),
+      '{{description}}': esc(isIndex ? desc : `${text} – ${desc}`),
+      '{{ogUrl}}': canonical,
+      '{{origin}}': ORIGIN,
+      '{{lang}}': lang,
+      '{{altEn}}': altEn,
+      '{{altSv}}': altSv,
+      '{{ogLocale}}': lang === 'sv' ? 'sv_SE' : 'en_US',
+      '{{bodyClass}}': lang === 'sv' ? `page-sv-${route}` : `page-${route}`,
+    }) + fill('header.html', {
+      '{{homeUrl}}': homeUrl,
+      '{{enUrl}}': enUrl,
+      '{{svUrl}}': svUrl,
+      '{{enCurrent}}': enCurrent,
+      '{{svCurrent}}': svCurrent,
+    }) + '\n' + body + '\n' + src('partials/footer.html'))
+      .replace(/<!--[\s\S]*?-->/g, '');            // keep notes in the source, ship none
+
+    if (lang === 'sv') html = absolute(html);
+
+    if (route === '404') {
+      // Served for whatever was requested, so relative refs would resolve against a
+      // directory with nothing in it (/deep/typo -> /deep/styles.css), and a canonical
+      // would point crawlers at a URL that answers 404.
+      html = absolute(html)
+        .replace(/<link rel="canonical"[^>]*>\n?/, '')
+        .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${ORIGIN}/${prefix}">`);
+      if (/<link[^>]*rel="canonical"/i.test(html)) problems.push(`${dir}/${route}.html: a canonical survived into the 404 page`);
+      if (/og:url"[^>]*404|404[^>]*og:url/i.test(html)) problems.push(`${dir}/${route}.html: og:url still points at the 404`);
+    }
+
+    built.set(`${prefix}${route}.html`, html);
+
+    // The same page under <route>/index.html, so a server without rewrite rules can answer
+    // the canonical URL at all. Refs must be root-absolute from there.
+    if (route !== 'index' && route !== '404') {
+      if (lang === 'sv') {
+        built.set(`sv/${route}/index.html`, html);
+      } else {
+        let dirForm = setAttr(setAttr(absolute(html), 'href', (v) => v === '/index.html' ? '/' : null), 'href', (v) => {
+          const m = /^\/([\w-]+)\.html$/.exec(v);
+          return m && routes.has(m[1]) ? `/${m[1]}/` : null;
+        });
+        built.set(`${route}/index.html`, dirForm);
+      }
+    }
   }
 }
 

@@ -1,475 +1,380 @@
-/* Humlab Showcase — plain CSS. No preprocessor, no framework.
-   Nesting is flattened and colors are literals so this file ships as-is. */
+/* Humlab Showcase — one stylesheet, no JavaScript, no framework.
+   Modern editorial layout: warm paper background, teal accent, restrained type.
+   All fonts are self-hosted so no visitor request leaves the server. */
 
 :root {
-  --font: 'Prompt', sans-serif;
-  --headline-font: 'Harlow Solid', 'Italianno', cursive;
-  --tag-font: 'WendyOne-Regular', sans-serif;
-  --text: #363432;
-  --text-invert: #ffffff;
-  --text-muted: #333333;
-  --accent: #196774;
-  --accent-hover: #228c9e;   /* accent lightened 10% */
-  --accent-dark: #10424a;    /* accent darkened 10% */
-  --accent-2: #c95100;
-  --box-bg: rgba(191, 191, 191, 0.5);
+  --bg: #f6f3ec;
+  --surface: #fffdf8;
+  --surface-2: #ece7dc;
+  --ink: #1f2526;
+  --muted: #5b6466;
+  --line: #d7d1c5;
+  --accent: #0f5f68;
+  --accent-hover: #147a85;
+  --accent-2: #a54d16;
+  --accent-soft: #e8f0ef;
+  --shadow: 0 10px 30px rgba(31, 37, 38, 0.08);
+  --font: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --max: 1180px;
 }
 
-/* --- reset: only what the layout actually depends on --- */
-/* The heading metrics below are the rules the old Ionic normalize shipped, and the
-   design was spaced around them. Ported literally so nothing shifts. */
 *, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.65;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   overflow-wrap: break-word;
 }
-h1, h2, h3, h4, h5, h6 { margin: 16px 0 10px; font-weight: 500; line-height: 1.2; }
-h1 { margin-top: 20px; font-size: 26px; }
-h2 { font-size: 24px; }
-h3 { font-size: 22px; }
-h4 { font-size: 20px; }
-h5 { font-size: 18px; }
-h6 { font-size: 16px; }
-hr { height: 1px; border-width: 0; }
-img, video { max-width: 100%; }
-/* With width+height attributes present this is what keeps the aspect ratio: the
-   attributes act as a ratio hint and the CSS (or grid track) width stays in charge.
-   Without it a presentational height="196" beats max-width:100% and a tile header can
-   eat the whole 240px tile. */
+img, video { max-width: 100%; display: block; }
+/* Width/height attributes are ratio hints; CSS width stays in charge. */
 img[width][height] { height: auto; }
-iframe { border: none; }
+iframe { border: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 0; line-height: 1.15; font-weight: 600; }
+a { color: var(--accent-2); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
 /* --- fonts --- */
 @font-face {
-  font-family: 'Harlow Solid';
-  src: url('assets/HarlowSolidPlain.woff2') format('woff2'),
-       url('assets/HarlowSolidPlain.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
+  font-family: 'Inter';
+  src: url('assets/fonts/inter-latin.woff2') format('woff2');
+  font-weight: 400 700; font-style: normal; font-display: swap;
 }
 
-@font-face {
-  font-family: 'WendyOne-Regular';
-  src: url('assets/WendyOne-Regular.ttf');
-  font-display: swap;
+/* --- shell --- */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  background: var(--ink);
+  color: #fff;
+  padding: 0.65rem 1rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
 }
-
-/* Prompt and Italianno are self-hosted (latin subset, the same files Google was serving):
-   a public-sector page should not leak every visitor's IP to fonts.googleapis.com, and the
-   typography should not depend on a third party being up.
-
-   Prompt ships exactly ONE face, weight 100. That is all the original ever had: its @import
-   asked for `Prompt:ital,wght@0,100;1,300`, so an upright face heavier than 100 was never
-   available and the `font-weight: bold` rules in this file drew either the thin face or a
-   synthesised outline of it. Self-hosting 400 and 700 here instead made those rules mean
-   what they say, and the rebuilt site came out bolder than the page it replaced. So do not
-   "improve" this by adding weights -- adding one changes the design, which is how this bug
-   happened in the first place. If the synthesised bold becomes unwanted, change the five
-   `font-weight: bold` declarations instead (here, .year, .sub-header, and twice in
-   .project-header-container): at 400 they ask for nothing the font cannot do honestly. */
-@font-face {
-  font-family: 'Prompt';
-  src: url('assets/fonts/prompt-100-latin.woff2') format('woff2');
-  font-weight: 100; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: 'Italianno';
-  src: url('assets/fonts/italianno-latin.woff2') format('woff2');
-  font-weight: 400; font-style: normal; font-display: swap;
-}
-
-h1 { font-family: var(--headline-font); }
-h2 { margin-bottom: 2em; }
-
-/* --- app shell --- */
+.skip-link:focus { top: 1rem; }
 #baseplate {
-  padding: 0 4vw 4vh 4vw;
-  margin: auto;
-  max-width: 3000px;
-  font-family: var(--font);
-  color: var(--text);
-  font-weight: bold;
-  font-size: 1em;
-  background-image: url('assets/lines-left.svg'), url('assets/lines-right.svg');
-  background-position: 0 0, right;
-  background-repeat: no-repeat;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 1.25rem 2rem;
 }
+main { display: block; }
 
-.header { padding: 1em 1em 0 1em; }
-.header img { max-height: 50px; }
-.header h1 {
-  font-size: 4em;
-  text-align: center;
-  margin: -40px 0 0 0;
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--line);
 }
-.header h1 a { text-decoration: none; color: var(--accent); }
+.brand { display: flex; align-items: center; min-width: 0; }
+/* one link (logo + word) back to the showcase index, so the header has no duplicate target */
+.brand-mark { display: inline-flex; align-items: center; gap: 0.9rem; }
+.brand-mark img { max-height: 46px; width: auto; }
+.site-title { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.01em; }
+.site-title a { color: var(--ink); text-decoration: none; }
+.site-title a:hover { color: var(--accent); }
 
-footer {
-  padding: 2em;
-  text-align: center;
-  margin: 3em -4vw -4vh -4vw;
-  background-color: var(--accent);
-  color: white;
+.lang-switch { display: flex; gap: 0.4rem; align-items: center; }
+.lang-switch a {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
 }
-footer img { max-width: 200px; }
+.lang-switch a:hover { border-color: var(--accent); color: var(--accent); }
+.lang-switch a[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.site-footer {
+  margin-top: 2.5rem;
+  padding: 1.4rem 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.footer-inner img { max-height: 38px; width: auto; }
+.footer-inner a { display: inline-flex; }
+/* the university mark sits at the right end of the bar, clear of the Humlab lockup */
+.footer-inner a:last-child { margin-left: auto; }
+
+/* --- headings and intro --- */
+.sub-header {
+  max-width: var(--max);
+  margin: 1.5rem auto 0.75rem;
+  padding: 0 1.25rem;
+  font-size: clamp(1.9rem, 3.5vw, 3rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+.year {
+  max-width: var(--max);
+  margin: 0 auto 1.5rem;
+  padding: 0 1.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.page-intro { max-width: var(--max); margin: 0 auto; padding: 1.5rem 1.25rem 0.5rem; }
+.eyebrow {
+  margin: 0 0 0.45rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.page-intro .sub-header { margin: 0 0 1.5rem; padding: 0; max-width: none; }
 
 /* --- project page layout --- */
 .main-container {
-  padding: 0 6em 0 6em;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 1.25rem 2rem;
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  grid-auto-rows: max-content;
-  grid-gap: 30px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 1fr);
+  gap: 2rem;
+  align-items: start;
 }
-
 .main-container-one-col {
-  padding: 0 14em 0 14em;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-gap: 30px;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
-
 .left-container, .right-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-auto-rows: max-content;
-  grid-gap: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
 }
 
-.text-h3 { font-family: var(--tag-font); margin-left: 2em; }
-
-.year {
-  font-size: 20px;   /* it used to be an <h4>; the tag changed, the size did not */
-  text-align: center;
-  color: var(--accent);
-  font-weight: bold;
-  margin: 0;
-}
-
-.logo-project {
-  grid-column: span 2;
-  justify-self: center;
-  /* 60% of the left column, not the 30% the old wordmark needed: the new logotype
-     carries its slogan in small caps, and at 30% (about 165px) that text renders
-     around 7px tall. Only visp.html uses this class. */
-  width: 60%;
-}
-
-.desc-text {
-  padding: 1em 0 1em 0.8em;
-  font-size: 1.1em;
-  border-left: 4px var(--accent) solid;
-  grid-column: span 2;
-  margin: 0;
-}
-.desc-text a { color: var(--accent-2); text-decoration: none; }
-.desc-text a:hover { text-decoration: underline; }
-.desc-text .sv {
-  font-size: 0.9em;
-  color: var(--accent-2);
-  font-style: italic;
-  font-weight: normal;
-}
-
-.explore-button {
-  padding: 0.7em;
-  background: var(--accent);
-  box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
-  font-size: 1.3em;
-  font-family: var(--tag-font);
-  font-weight: normal;
-  color: var(--text-invert);
-  text-decoration: none;
-  grid-column: span 2;
-  letter-spacing: 1px;
-  justify-self: left;
-  border-radius: 3px;
-}
-.explore-button:hover {
-  background: var(--accent-hover);
-  box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.1);
-}
-
-.project-image {
-  background-color: var(--box-bg);
-  padding: 0.5em;
-  grid-column: span 2;
-  border-radius: 3px;
-}
-.project-image span {
-  font-weight: normal;
-  font-style: italic;
-  font-size: 0.9em;
-  color: var(--text-muted);
-}
-.project-image img { width: 100%; border-radius: 3px 3px 0 0; }
+.desc-text { margin: 0; font-size: 1.08rem; line-height: 1.7; }
+.desc-text a { text-decoration: underline; text-underline-offset: 2px; }
+.desc-text .sv { font-style: italic; }
 
 .info-box {
-  background-color: var(--box-bg);
-  padding: 2em;
-  text-align: justify;
-  grid-column: span 2;
   margin: 0;
-  border-radius: 3px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 1.1rem 1.25rem;
+  font-size: 0.98rem;
+  text-align: left;
 }
-.info-box span { font-style: italic; color: var(--accent); }
-.info-box a { text-decoration: none; color: var(--accent-2); }
+.info-box span, .text-highlight { font-weight: 600; color: var(--accent); }
+.events ul { margin: 0.5rem 0 0; padding-left: 1.1rem; }
 
-.events ul { margin: 0; padding: 0; list-style-type: none; }
+.project-image {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.7rem;
+}
+.project-image img, .screenshot-image { width: 100%; border-radius: 8px; }
+.project-image span {
+  display: block;
+  margin-top: 0.55rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
 
+.videoframe {
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0b1112;
+  aspect-ratio: 16 / 9;
+}
+.videoframe iframe, .videoframe video { width: 100%; height: 100%; display: block; }
+.mov { margin: 0; border-radius: 14px; overflow: hidden; background: #0b1112; }
+.mov video { width: 100%; height: auto; }
+
+/* --- metadata cards --- */
 .box {
-  color: #f6f6f6;
-  padding: 1.5em;
-  text-align: center;
-  border-radius: 3px;
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem;
+  text-align: left;
 }
-.box ul { padding: 0; margin: 0; list-style-type: none; }
-.box li a { text-decoration: none; color: var(--text-invert); }
-.box a:hover { text-decoration: underline; }
-.box h3 { margin-top: 0; font-family: var(--tag-font); }
-
-.two-col-people { display: grid; grid-template-columns: 1fr 1fr; }
-.two-col-people li { text-align: center; }
-.two-col-people li span {
-  font-family: var(--tag-font);
-  font-weight: normal;
-  letter-spacing: 1px;
-  font-size: 1.1em;
+.box.cooperation { border-top-color: var(--accent-2); }
+.box.financier { border-top-color: var(--muted); }
+.box.previously { background: var(--surface-2); border-top-color: var(--muted); }
+.box h3 {
+  margin: 0 0 0.65rem;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.box ul { margin: 0; padding: 0; list-style: none; }
+.box li { margin: 0.25rem 0; }
+.box a { text-decoration: underline; text-underline-offset: 2px; }
+.two-col-people { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.two-col-people li > span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-.humlab { background-color: var(--accent-2); }
-.cooperation { background-color: var(--accent); }
-.previously { background-color: var(--box-bg); color: var(--text); }
-.previously li a { color: var(--text); }
-
-.infrastructure {
-  grid-column: span 2;
-  color: #444444;
-  padding-top: 0;
-}
-.infrastructure img { width: 100%; max-width: 400px; }
-
-.financier { grid-column: span 2; }
-.financier h3 { color: #444444; }
 .financier-logo {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   align-items: center;
-  gap: 1em;
+  gap: 1rem;
 }
-.financier-logo a { width: 200px; }
-.financier-logo span { width: 200px; }
-/* contain, not the default fill: these images carry width/height attributes, which makes
-   their used width a specified value, and then max-height:100px clamps the height without
-   touching the width. Uppsala (1.05:1), Lund (0.79:1) and Kungliga biblioteket (0.95:1) all
-   ended up drawn inside a 200x100 box, i.e. about twice as wide as they are. With auto sizes
-   browsers apply the two maxima together and keep the ratio themselves - which is what the
-   site did before the attributes were added, and what this line gives back: the wide logos
-   are unaffected because their height at 200px was already under 100. */
-.financier-logo img { max-height: 100px; object-fit: contain; }
-.financier-logo p { color: #444444; font-size: 1.4rem; }
+.financier-logo a, .financier-logo span { width: 180px; }
+.financier-logo a.big { width: 260px; }
+.project-logo { display: block; width: min(100%, 340px); height: auto; margin: 0 0 1.5rem; }
+.financier-logo img { max-height: 80px; object-fit: contain; }
+.financier-logo p { margin: 0; color: var(--muted); font-size: 0.95rem; }
 
-.sub-header {
-  font-weight: bold;
-  text-align: center;
-  margin: 0.6em 0 1em 0;
-}
-
-.videoframe { grid-column: span 2; height: 300px; }
-.videoframe iframe, .videoframe video { width: 100%; height: 100%; }
-
-.mov { grid-column: span 2; }
-.mov video { width: 100%; height: 100%; }
-
-.tags { grid-column: span 2; color: #444444; padding-top: 0; }
-.tag {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-}
-.tag span {
-  background-color: var(--accent);
-  padding: 3px 17px;
-  border-radius: 30px;
-  color: #f6f6f6;
-  font-size: 0.9em;
-}
-.tag span:nth-child(3n - 1) { background-color: var(--accent-dark); }
-.tag span:nth-child(3n) { background-color: var(--accent-hover); }
-
-/* --- front page tiles (only used inside #main-grid-container) --- */
-#main-grid-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 240px);
-  grid-gap: 40px;
-  justify-content: center;
-  padding: 0 2em 0 2em;
-}
-#main-grid-container a { text-decoration: none; }
-#humlab { text-decoration: none; color: var(--accent-2); }
-
-.project-header-container { margin-bottom: 10px; }
-.project-header-container h3 {
-  font-size: 1.4em;
-  color: #000;
-  font-weight: bold;
-  text-decoration: none;
-  text-align: center;
-  margin-bottom: 0;
-  margin-top: 10px;
-}
-.project-header-container h4 {
-  text-align: center;
-  margin: 0 0 -5px 0;
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: bold;
-  font-size: 1.1em;
-}
-
-.project-grid-tile {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: max-content 1fr 1fr;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-  height: 240px;
-  transform: scale(1);
-  animation-name: scale-ani-out;
-  animation-duration: 0.1s;
-  border-radius: 10px;
-  padding: 0.9em;
-  overflow: hidden;
-  background-color: white;
-}
-.project-grid-tile-4-pane { grid-template-rows: 1fr 1fr; }
-.project-grid-tile:hover {
-  transform: scale(1.06);
-  animation-name: scale-ani-in;
-  animation-duration: 0.1s;
-}
-.project-grid-tile:hover .screenshot-cover { opacity: 1; }   /* the tile itself dims the shot to 0.8 */
-
-.tile { font-size: 1.3em; }
-
-@keyframes scale-ani-in {
-  from { transform: scale(1); }
-  to { transform: scale(1.06); }
-}
-@keyframes scale-ani-out {
-  from { transform: scale(1.06); }
-  to { transform: scale(1); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .project-grid-tile, .project-grid-tile:hover { animation: none; transform: none; }
-}
-
-#main-grid-container .colspan { grid-column: span 2; }
-#main-grid-container .rowspan { grid-row: 2 / span 2; }
-
-.mono-left { font-family: monospace; text-align: left; }
-.underline { text-decoration: underline; }
-#main-grid-container .screenshot-cover.contain { object-fit: contain; }
-
-#main-grid-container .project-logo {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.infrastructure-tags {
-  position: absolute;
-  bottom: 0;
-  margin: 0;
-  padding: 0;
-}
-.infrastructure-tags li {
+.tag { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.tag span, .chip {
   display: inline-block;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.chip.infravis { border-color: #6b3a63; background: #f4e9f3; color: #5b2a5e; }
+.chip.sprakbanken { border-color: #283c74; background: #e9edf5; color: #283c74; }
+.chip.swedigarch { border-color: #6e3737; background: #f5e9e9; color: #6e3737; }
+
+.explore-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   width: max-content;
-  color: var(--text-invert);
-  padding: 0.2em 1.3em 0.2em 1.3em;
-  border-radius: 0 10px 0 0;
+  padding: 0.7rem 1.2rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow);
 }
-.infravis {
-  background-image: linear-gradient(220deg, rgb(255, 255, 0) 10%,
-    rgb(255, 132, 38), rgb(255, 0, 43), rgb(133, 55, 133) 60%, rgb(41, 41, 255) 95%);
-}
-.sprakbanken { background-color: #283c74; }   /* was .sweclarin: the organisation is Språkbanken now */
-.swedigarch { background-color: #6e3737; }
+.explore-button:hover { background: var(--accent-hover); color: #fff; }
 
-.screenshot-cover {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.8;
+.logo-project { width: 60%; }
+.text-h3 {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
+.underline { text-decoration: underline; }
+.mono-left { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-align: left; }
 
-/* The webp pass wraps these images in a <picture>, which would then be the grid item and
-   the img an inline box inside it: height:100% resolves against the picture's auto height
-   instead of the 1fr track, and every tile collapses to the image's attribute size.
-   display:contents removes the picture's box, so the img is the grid item again. Source
-   selection is untouched, it is support detection, not layout. Browsers too old for
-   <picture> also lack display:contents (IE11); they get the collapsed tiles. */
-#main-grid-container picture { display: contents; }
+/* --- front-page project cards --- */
+.project-grid {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 1.25rem 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 1.25rem;
+}
+.project-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  color: var(--ink);
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.project-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+.card-media {
+  display: grid;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.card-media picture { display: block; min-height: 0; }
+.card-media img { width: 100%; height: 100%; object-fit: cover; }
+.card-media img[width][height] { height: 100%; }
+.card-media img.contain { object-fit: contain; padding: 0.75rem; }
+.card-media-2 { grid-template-columns: 1fr 1fr; }
+.card-media-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.card-media-3 > :first-child { grid-row: span 2; }
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem 1.25rem;
+}
+.card-body h3 { font-size: 1.02rem; line-height: 1.35; }
+.card-year {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.35rem 0 0; padding: 0; list-style: none; }
 
 /* --- responsive --- */
-@media only screen and (max-width: 767px) {
-  #baseplate { font-size: 0.8em; }
-  .header img { max-height: 40px; }
-  .header h1 { font-size: 4em; text-align: center; margin-top: 0; }
-
-  .main-container, .main-container-one-col {
-    padding: 0;
-    grid-template-columns: 1fr;
-    grid-gap: 20px;
-  }
-  .left-container, .right-container { grid-gap: 20px; }
-
-  .explore-button {
-    justify-self: normal;
-    text-align: center;
-    padding: 0.8em;
-    font-size: 1.6em;
-  }
-  .sub-header { font-size: 1.4em; margin-bottom: 0; }
-  .tile { margin-bottom: 1em; }
-  .logo-project { width: 70%; }
-
-  .box { padding: 1.3em; grid-column: span 2; }
-  .box h3 { font-size: 1.3em; }
-  .box li { font-size: 1.1em; padding-bottom: 5px; }
-
-  .desc-text, .info-box { font-size: 1.1em; }
+@media (max-width: 900px) {
+  .main-container { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  #baseplate { padding: 0 0.8rem 1.5rem; }
+  .site-header { flex-wrap: wrap; }
+  .project-grid { grid-template-columns: 1fr; }
+  .sub-header { font-size: 1.85rem; padding: 0 0.8rem; }
+  .year { padding: 0 0.8rem; }
+  .main-container, .main-container-one-col { padding: 0 0.8rem 1.5rem; }
   .two-col-people { grid-template-columns: 1fr; }
+  .footer-inner { flex-wrap: wrap; }
 }
-
-@media only screen and (min-width: 768px) and (max-width: 1023px) {
-  .header h1 { margin-top: 0; }
-  .main-container, .main-container-one-col { grid-template-columns: 1fr; padding: 1em; }
-  .sub-header { margin-bottom: 0; }
-  .tile { margin-bottom: 1em; }
-  .box { grid-column: span 2; }
-}
-
-@media only screen and (min-width: 1023px) and (max-width: 1430px) {
-  .main-container-one-col { padding: 1em; grid-column: span 2; }
-  .people { grid-template-columns: 1fr; }
-  .tile { margin-bottom: 1em; }
-}
-
-@media only screen and (max-width: 788px) {
-  #main-grid-container {
-    grid-template-columns: repeat(auto-fill, 270px);
-    grid-gap: 20px;
-  }
-  .project-grid-tile { height: 270px; padding: 0.7em; }
-  .project-header-container { margin-bottom: 10px; }
-  .project-header-container h3 { margin: 10px 10px 0 10px; }
-  .project-header-container h4 { font-size: 1.3em; margin: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .project-card { transition: none; }
+  .project-card:hover { transform: none; }
 }
