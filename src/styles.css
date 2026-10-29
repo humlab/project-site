@@ -80,7 +80,7 @@ main { display: block; }
 .brand { display: flex; align-items: center; min-width: 0; }
 /* one link (logo + word) back to the showcase index, so the header has no duplicate target */
 .brand-mark { display: inline-flex; align-items: center; gap: 0.9rem; }
-.brand-mark img { max-height: 46px; width: auto; }
+.brand-mark img { max-height: 40px; width: auto; }
 .site-title { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.01em; }
 .site-title a { color: var(--ink); text-decoration: none; }
 .site-title a:hover { color: var(--accent); }
@@ -113,9 +113,6 @@ main { display: block; }
   flex-wrap: wrap;
 }
 .footer-inner img { max-height: 38px; width: auto; }
-.footer-inner a { display: inline-flex; }
-/* the university mark sits at the right end of the bar, clear of the Humlab lockup */
-.footer-inner a:last-child { margin-left: auto; }
 
 /* --- headings and intro --- */
 .sub-header {
