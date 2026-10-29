@@ -330,6 +330,7 @@ main { display: block; }
   box-shadow: var(--shadow);
 }
 .card-media {
+  position: relative;          /* anchor for the pills floating over the image */
   display: grid;
   aspect-ratio: 4 / 3;
   overflow: hidden;
@@ -359,6 +360,9 @@ main { display: block; }
   text-transform: uppercase;
 }
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.35rem 0 0; padding: 0; list-style: none; }
+/* Out of the grid flow, so the 2- and 3-image mosaics are untouched. The pills keep their
+   own opaque background, which is what keeps them readable on top of a screenshot. */
+.card-media .chips { position: absolute; top: 0.7rem; left: 0.7rem; right: 0.7rem; margin: 0; }
 
 /* --- responsive --- */
 @media (max-width: 900px) {
