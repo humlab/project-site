@@ -679,6 +679,50 @@ const unsizedFiles = [...new Set(unsized.map((u) => u.replace(/^\//, '')))];
 if (unsizedFiles.length)
   warnings.push(`${unsizedFiles.length} images without width/height, e.g. ${unsizedFiles.slice(0, 3).join(', ')}`);
 
+// ---------- the overview order ----------
+// The tiles are hand-ordered HTML, and twice during the redesign the order drifted out from
+// under the dates printed on them (a 2014 project above a 2023 one; an open-ended card
+// pushed to the bottom by an edit). Read the periods back off the built page and refuse when
+// the cards are no longer "ongoing first, then newest start year", so a new project cannot
+// be appended to the bottom of the file in silence. A card with no period cannot be placed
+// at all, so it is left out of the comparison and named as a warning instead - inventing a
+// year to silence this check is the failure mode it exists to prevent.
+const THIS_YEAR = new Date().getFullYear();
+const overviewOrder = new Map();
+for (const [where, file] of [['/', 'index.html'], ['/sv/', 'sv/index.html']]) {
+  const html = built.get(file);
+  if (!html) continue;
+  const cards = html.split('<a class="project-card"').slice(1).map((seg) => {
+    const card = seg.split('</a>')[0];
+    return {
+      route: (card.match(/href="([^"]+)"/)?.[1] ?? '').replace(/^\/?(?:sv\/)?/, '').replace(/\.html$/, ''),
+      year:  (card.match(/card-year">([^<]*)</)          || [, '']  )[1].trim(),
+    };
+  });
+  const rank = (c) => {
+    const yrs = (c.year.match(/\d{4}/g) || []).map(Number);
+    // Open-ended ("2008–"), or a period still running this year. A project that ends in
+    // December is still ongoing in June, so >= and not >: when the year turns, the cards it
+    // just retired will move and this check will say so until someone reorders them.
+    return [c.year.endsWith('\u2013') || (yrs.length > 0 && Math.max(...yrs) >= THIS_YEAR) ? 0 : 1,
+            -(yrs[0] ?? 0)];
+  };
+  const dated = cards.filter((c) => c.year);
+  const undated = dated.length ? cards.filter((c) => !c.year).map((c) => `/${c.route}`) : [];
+  if (undated.length) warnings.push(`${file}: cards with no period, not ordered: ${undated.join(', ')}`);
+  for (let i = 1; i < dated.length; i++) {
+    const [a, b] = [dated[i - 1], dated[i]];
+    const [ka, kb] = [rank(a), rank(b)];
+    if (ka[0] > kb[0] || (ka[0] === kb[0] && ka[1] > kb[1])) {
+      problems.push(`${where}: project cards are out of order (${ka[0] === kb[0] ? `${a.route} ${a.year} is not newer than ${b.route} ${b.year}` : `${a.route} ${a.year} is finished while ${b.route} ${b.year} is ongoing`}); ongoing first, then newest start year`);
+      break;
+    }
+  }
+  overviewOrder.set(file, cards.map((c) => c.route).join(' '));
+}
+if (overviewOrder.size === 2 && [...overviewOrder.values()][0] !== [...overviewOrder.values()][1])
+  problems.push('/ and /sv/ list the projects in different orders');
+
 // ---------- report, then write only when clean ----------
 console.log(`${pages.length} pages, ${assets.length} assets`);
 for (const w of new Set(warnings)) console.log(`  warn  ${w}`);
