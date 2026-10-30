@@ -130,7 +130,7 @@ const geometry = () => page.evaluate(async () => {
   scrollTo(0, 0);
   await document.fonts.ready.catch(() => {});
   if (![...document.fonts].length || !document.fonts.check('400 16px Inter'))
-    out.push('body font Prompt did not load');
+    out.push('body font Inter did not load');
   for (const t of document.querySelectorAll('.project-card')) {
     const { width: w, height: h } = R(t);
     const n = t.querySelector('h3')?.textContent.trim().slice(0, 20) ?? '?';
