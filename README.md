@@ -224,11 +224,11 @@ and keeps its own. `Strict-Transport-Security` is not sent here at all: that is 
 TLS, made by whatever terminates TLS. `X-Frame-Options: DENY` out there and
 `frame-ancestors 'none'` in here agree with each other, and neither of our files sends XFO.
 
-**Locked-down container** (`deploy/`). One name, three places: the image is
-`localhost/showcase_static`, and a quadlet whose `Image=` says anything else — `showcase_nginx`
-is a common leftover — starts a *different* image and no amount of `podman build` will change
-what answers. Check `podman inspect showcase-nginx --format '{{.Image}} {{.Created}}'`
-against what you just built before believing a deploy. A `scratch` image running busybox `httpd`: one
+**Locked-down container** (`deploy/`). Check what answers, not what was built: the busybox
+origin is `localhost/showcase_static`, the measured nginx sibling below is
+`localhost/showcase_nginx`, and production's quadlet still names the busybox image by the
+*second* of those — so `podman inspect showcase-nginx --format '{{.Image}} {{.Created}}'`
+is the line that tells the truth before you believe a deploy. A `scratch` image running busybox `httpd`: one
 process, no shell, read-only, 64 MB. `build.mjs` writes a second copy of every page as
 `<route>/index.html` with root-absolute refs precisely so this server can answer `/sead`
 (it 302s to `/sead/` by itself and serves the index) — without that, the minimum container
