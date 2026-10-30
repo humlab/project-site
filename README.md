@@ -2,7 +2,7 @@
 
 `showcase.humlab.umu.se` — static pages about current and completed Humlab projects.
 
-Plain HTML, one stylesheet, no JavaScript, no frameworks, no npm dependencies.
+Plain HTML, one stylesheet, no first-party JavaScript, no frameworks, no npm dependencies.
 The previous version was an Angular 11 + Ionic app whose 28 components contained zero
 dynamic behaviour; the machinery was only a source of breakage (see git history).
 
@@ -44,9 +44,10 @@ and leftover template copy such as "Insert text here".
 **WebP.** Every referenced raster over 20 kB also gets a `.webp` beside it in `dist/`
 (`cwebp -q 80 -m 6 -mt`) and its `<img>` is wrapped in
 `<picture><source type="image/webp" srcset="..."><img src="..."></picture>`: no JS, and
-`dist/` still opens from a directory or a `file://` path. Measured on this tree: 78 files,
-20.8 MB of png/jpeg down to 5.8 MB, lowest All-PSNR 39.1 dB
-(`assets/infravis-sead/seadbugs-screenshot.png` thumbnail), `dist/` is 33 MB on disk.
+`dist/` still opens from a directory or a `file://` path — the English tree, at least:
+`/sv/` references are root-absolute by design, so a `file://` Swedish page arrives unstyled.
+Measured on this tree: 79 images, 21.2 MB of png/jpeg down to 5.9 MB, lowest All-PSNR 39.1 dB
+(`assets/infravis-sead/seadbugs-screenshot.png.thumb.webp`), `dist/` is 33 MB on disk.
 Everything smaller, and every SVG, is left alone.
 The encodes
 are generated, never committed: a stale `.webp` in git beside a hand-replaced png shows
@@ -87,7 +88,8 @@ weights 400–700): no font request leaves the server, so no visitor IP goes to 
 the typography survives Google being down or blocked. Inter is a widely used modern UI
 font, which is why the card titles and body text no longer look like the old geometric
 Prompt face. The decorative Harlow Solid, WendyOne and Italianno faces used by the old
-design are gone; the project logos are images.
+design are gone; the project logos are images. Inter is under the SIL Open Font License 1.1,
+whose text ships as `LICENSE-Inter.txt` in the repo rather than in `dist/`.
 
 What the checker does *not* do: tag balance is a count of elements and closings, so a `<p>`
 misnested inside another element that the browser repairs differently is out of scope, and
@@ -171,8 +173,12 @@ clients) — check from somewhere else before deleting a link because of it.
 
 ## Deploy
 
-There are two ways to serve `dist/` and they are not interchangeable. nginx is what
-production uses.
+There are two ways to serve `dist/` and they are not interchangeable. **What answers
+`showcase.humlab.umu.se` today is the busybox origin**: `/sead` replies with busybox's own
+`302 → /sead/` and a miss returns busybox's 124-byte page rather than `dist/404.html` — both
+of which also say the deployed edge is *not* `deploy/proxy-showcase.conf` from this repo,
+since that vhost exists to prevent the 302 and would answer 200 with no redirect. The nginx
+shape below is what the redesign is benchmarked against.
 
 **nginx.** `nginx.conf` is the server block (`/etc/nginx/conf.d/default.conf` in the stock
 nginx image — TLS, HTTP/2 and HSTS belong to the front proxy that hands it
@@ -242,7 +248,8 @@ anything downstream that enforces strictly) and for not sending 7 MB of images o
 anonymous bytes. One engine tested, headless; if a Firefox/WebKit check ever says otherwise,
 the proxy block below is what fixes it, not a format change.
 
-**This is the deployment in use**: the container serves bytes, the front proxy supplies what
+**This is the shape in use** (not byte-for-byte what is deployed — see *Deploy* above): the
+container serves bytes, the front proxy supplies what
 busybox cannot invent. `deploy/proxy-showcase.conf` is that vhost — the canonical rewrites, the
 header list, four `Content-Type` overrides, and a `proxy_intercept_errors` fetch of
 `404.html` so a missing page gets our text at status 404 rather than busybox's at 404 — tested against the running container:
@@ -276,9 +283,11 @@ deploy/sample-run.sh   # build + start the container on 127.0.0.1:9712 (site bui
   relative so `dist/` also works from a directory or the filesystem. A project that changes
   name needs its own rule: `/swedeb` (now Riksdagsdebatter) 301s from every spelling
   (`/swedeb`, `/swedeb/`, `/swedeb.html`) so old bookmarks and the old front page still land.
-* `script-src 'none'`: the site has no JavaScript, so an injected script cannot run. When
+* `script-src 'none'`: the site ships no JavaScript of its own, so an injected script cannot run (framed players —
+  Kaltura, YouTube-nocookie, Sketchfab — do run JavaScript, under *their* origin's CSP:
+  `script-src` cannot reach into a frame, `frame-src` is what admits them). When
   you add an embed, extend `frame-src` and re-run `tools/smoke.mjs`.
-* Heading metrics and the invisible `<hr>` are ported literally from Ionic's normalize
+* Heading metrics are ported literally from Ionic's normalize
   (see `git log`), because the design was spaced around them.
 * `assets` are cached 30 d but not `immutable`: files are replaced by hand under the same
   name, and `immutable` would strand visitors on the old copy for a year.
