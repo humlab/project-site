@@ -269,6 +269,30 @@ quadlet-run, `nginx.conf` serves the same
 deploy/sample-run.sh   # build + start the container on 127.0.0.1:9712 (site built inside the Containerfile)
 ```
 
+**The nginx sibling, measured** (`deploy/Containerfile.nginx`). Both origins, same
+`dist/`, same hardened flags, side by side (podman 4.6, 2026-10-30): busybox 35.1 MB /
+nginx 39.2 MB. `tools/measure.mjs` per page (transfer via CDP, render with the CPU 20×
+slower):
+
+| page | busybox | nginx |
+|---|---|---|
+| `/` transfer | 1236 kB / 38 req | 1237 kB / 38 req |
+| `/` main thread, CPU×20 | 891 ms | **758 ms** |
+| `/sead` transfer | 479 kB / 12 req | **421 kB / 11 req** |
+| `/sead` main thread, CPU×20 | 354 ms | **347 ms** |
+
+The `/sead` delta is `SEAD-logo.svg` 67→16 kB and `styles.css` 10.8→3.1 kB — gzip of SVG
+and CSS, which busybox cannot do at all — plus one fewer request (no `302` hop). The 18%
+on `/` is `Connection: close`: 38 fresh sockets instead of one keep-alive connection.
+For the kiosk panels the deciding number is not in the table: nginx sends `Cache-Control`
+from git, so every reload after the first is a cache-hit; busybox sends none and every
+reload revalidates all 38 resources. Verdict: **nginx origin**, evaluated and not yet
+deployed; the size argument is answered better by dropping the 21 MB png/jpeg fallback
+than by busybox. The image is built for the same unix-socket chain the busybox quadlet
+uses (`LISTEN=socket` is the default; `--build-arg LISTEN=tcp` serves :8080 for local
+runs); it needs writable `/run` and `/tmp` (tmpfs, `mode=1777`) and runs as `User=65534`,
+since cap-drop=all leaves a root master unable to run nginx's `initgroups` at all.
+
 ## Deliberate choices, each learned from a bug
 
 * `try_files $uri $uri.html =404` with no `index.html` fallback. The old block ended in

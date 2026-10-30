@@ -1,0 +1,94 @@
+# nginx sibling of deploy/Containerfile: static nginx (musl, no TLS, pruned modules), the
+# repo's nginx.conf as its own server config, and the built dist/ — so what you benchmark
+# is the config tools/check-nginx.mjs guards, not a stock image with the policy added at
+# the proxy. Measured against the busybox origin: README, Deploy section.
+#   podman build -f deploy/Containerfile.nginx -t localhost/showcase_nginx .   (unix socket, production form)
+#   podman build -f deploy/Containerfile.nginx --build-arg LISTEN=tcp -t showcase_nginx_tcp .   (eval over -p)
+#
+# Edits made while making the first draft build (measured, not guessed):
+#   - no pcre2-static: Alpine has no such package; libpcre2-*.a ship inside pcre2-dev.
+#   - gzip module stays IN (the draft cut it): nginx.conf carries `gzip` directives, so
+#     a binary without the module cannot even parse the config it is meant to serve. The
+#     module is ~100 kB and buys the origin its own CSS/SVG compression.
+#   - mime.types is cp'd to a fixed path in its own stage instead of a glob COPY:
+#     COPY --from with a wildcard is not portable across buildah/docker.
+#   - image/webp / font/woff2 are asserted into mime.types at build time. The tarball's
+#     bundled table is not guaranteed to carry them (this exact gap is why the busybox
+#     origin needs its proxy workaround today); the grep makes a future tarball that
+#     drops a line fail the build instead of shipping octet-stream.
+#
+# `nginx -t` in the config stage is the point of the shape: the canonical rewrites, the
+# /sv exception, the error_page chain and the cache map are all parsed before an image
+# exists. It is not a main config — http-level maps plus a server block — so the stage
+# writes the smallest main config that is valid around it and retargets root and listen.
+#
+# Runtime needs two writable dirs the busybox image does not: /run (pid) and /tmp (temp
+# paths). Run with --tmpfs on both, mode=1777, alongside User=65534 — a rootless quadlet
+# for the nginx origin differs from the running busybox one only in those three lines
+# (plus chmod 1777 on the sockets dir, which both uids must write).
+
+# ---------- build stage: identical to deploy/Containerfile ----------
+FROM node:24-bookworm-slim AS build
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends webp \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY build.mjs ./
+COPY src ./src
+RUN node build.mjs
+
+# ---------- nginx: one static binary, no libc to carry into the runtime ----------
+FROM alpine:3.20 AS nginx
+RUN apk add --no-cache build-base linux-headers pcre2-dev zlib-dev zlib-static
+ARG NGINX=1.28.0
+RUN mkdir -p /usr/src \
+ && wget -qO- https://nginx.org/download/nginx-$NGINX.tar.gz | tar xz -C /usr/src \
+ && cd /usr/src/nginx-$NGINX \
+ && ./configure --prefix=/usr/local/nginx --sbin-path=/nginx --conf-path=/etc/nginx/nginx.conf \
+      --pid-path=/run/nginx.pid --lock-path=/run/lock/nginx.lock \
+      --http-log-path=/dev/stdout --error-log-path=/dev/stderr \
+      --http-client-body-temp-path=/tmp/nginx-body --http-proxy-temp-path=/tmp/nginx-proxy \
+      --http-fastcgi-temp-path=/tmp/nginx-fastcgi \
+      --without-http_ssi_module --without-http_autoindex_module \
+      --without-http_scgi_module --without-http_uwsgi_module --with-ld-opt=-static \
+ && make -j"$(nproc)" && make install \
+ && cp conf/mime.types /mime.types
+
+# ---------- config: wrap nginx.conf, retarget, validate ----------
+# LISTEN=socket (default, production): nginx.conf is used exactly as committed, socket and
+# all — the socat sidecar connects to /socket/nginx.sock. LISTEN=tcp is the dev/eval form,
+# reachable over -p; it rewrites only the listen line.
+# worker_processes 1: the default `auto` spawns one worker per core, against a TasksMax
+# of 64 and a static site that a single worker serves at full sendfile speed (measured).
+# No `user` line: cap-drop=all rootless cannot run ANY of nginx's privilege syscalls —
+# `user root;` was tried and died with `initgroups(root, 0) failed (1: Operation not
+# permitted)` (measured). The run is therefore User=65534: a non-root master skips
+# setuid/initgroups entirely and nginx needs no /etc/passwd in a scratch image at all. The unix socket binds world-writable (srw-rw-rw-, measured), which is why
+# a differently-uided socat can still connect to it.
+# worker_connections 200: the hardened run caps nofile at 256, and 512 connections over
+# 256 fds logs a warning on every start (measured) — a static origin does not need 512.
+FROM alpine:3.20 AS config
+WORKDIR /etc/nginx
+ARG LISTEN=socket
+COPY nginx.conf conf.d/default.conf
+COPY --from=nginx /nginx /nginx
+COPY --from=nginx /mime.types mime.types
+RUN grep -q 'image/webp' mime.types || echo 'image/webp webp;' >> mime.types \
+ && grep -q 'woff2' mime.types || echo 'font/woff2 woff2;' >> mime.types \
+ && grep -q 'mp4' mime.types || echo 'video/mp4 mp4 m4v m4a;' >> mime.types \
+ && printf 'pid /run/nginx.pid;\nerror_log /dev/stderr warn;\nworker_processes 1;\nevents { worker_connections 200; }\nhttp {\n  include %s/mime.types;\n  default_type application/octet-stream;\n  sendfile on;\n  access_log off;\n  include conf.d/*.conf;\n}\n' "$PWD" > nginx.conf \
+ && sed -i -e 's|root /usr/share/nginx/html;|root /www;|' conf.d/default.conf \
+ && if [ "$LISTEN" = tcp ]; then sed -i 's|listen unix:/socket/nginx.sock;|listen 8080;|' conf.d/default.conf; fi \
+ && mkdir -p /socket \
+ && /nginx -t -c /etc/nginx/nginx.conf
+
+# The mkdir is part of the validation: `nginx -t` BINDS its listeners, and the unix
+# socket needs its directory to exist (tools/check-nginx.mjs swaps the socket for a port
+# for the same reason; here the real line stays, so the config is tested as deployed).
+
+# ---------- runtime: the binary, the site, the config. Nothing else. ----------
+FROM scratch
+COPY --from=nginx /nginx /nginx
+COPY --from=build /src/dist /www
+COPY --from=config /etc/nginx /etc/nginx
+ENTRYPOINT ["/nginx", "-g", "daemon off;"]
