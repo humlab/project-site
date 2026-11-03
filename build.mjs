@@ -328,7 +328,14 @@ for (const { dir, prefix, lang, routes: pageRoutes } of langSets) {
       : { '{{logo}}': 'assets/humlab_logo_left_en.png', '{{logoW}}': '2245', '{{logoH}}': '376' };
 
     let html = (fill('head.html', {
-      '{{title}}': esc(isIndex ? 'Humlab Showcase' : `${text} – Humlab Showcase`),
+      // The front page's visible line is short by design (the header lockup already says
+      // "Humlab Showcase"), so the descriptive version lives here instead: a browser tab
+      // truncates it, a search result and a share card do not.
+      '{{title}}': esc(isIndex
+        ? (lang === 'sv'
+          ? 'Humlab Showcase – pågående och avslutade projekt vid Umeå universitet'
+          : 'Humlab Showcase – current and completed projects at Umeå University')
+        : `${text} – Humlab Showcase`),
       '{{description}}': esc(isIndex ? desc : `${text} – ${desc}`),
       '{{ogUrl}}': canonical,
       '{{origin}}': ORIGIN,
@@ -712,8 +719,13 @@ for (const [where, file] of [['/', 'index.html'], ['/sv/', 'sv/index.html']]) {
     // Open-ended ("2008–"), or a period still running this year. A project that ends in
     // December is still ongoing in June, so >= and not >: when the year turns, the cards it
     // just retired will move and this check will say so until someone reorders them.
-    return [c.year.endsWith('\u2013') || (yrs.length > 0 && Math.max(...yrs) >= THIS_YEAR) ? 0 : 1,
-            -(yrs[0] ?? 0)];
+    // "Ongoing" / "Pågående" on a tile is the honest label for a project still running with
+    // no start year on record. It ranks inside the ongoing block, after every dated one, so
+    // the rule stays "ongoing first, then newest start year" without inventing a year here.
+    const ongoing = /\b(ongoing|pågående)\b/i.test(c.year)
+      || c.year.endsWith('\u2013')
+      || (yrs.length > 0 && Math.max(...yrs) >= THIS_YEAR);
+    return [ongoing ? 0 : 1, -(yrs[0] ?? -1)];
   };
   const dated = cards.filter((c) => c.year);
   const undated = dated.length ? cards.filter((c) => !c.year).map((c) => `/${c.route}`) : [];

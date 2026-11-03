@@ -136,6 +136,8 @@ main { display: block; }
 }
 .page-intro { max-width: var(--max); margin: 0 auto; padding: 1.5rem 1.25rem 0.5rem; }
 .page-intro .sub-header { margin: 0 0 1.5rem; padding: 0; max-width: none; }
+/* front page: the lockup above already reads "Humlab, Umeå University", so the hero is the
+   only line here - an institutional note under it repeated a logo three lines away */
 
 /* --- project page layout --- */
 .main-container {
