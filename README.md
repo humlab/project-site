@@ -46,8 +46,8 @@ and leftover template copy such as "Insert text here".
 `<picture><source type="image/webp" srcset="..."><img src="..."></picture>`: no JS, and
 `dist/` still opens from a directory or a `file://` path — the English tree, at least:
 `/sv/` references are root-absolute by design, so a `file://` Swedish page arrives unstyled.
-Measured on this tree: 79 images, 21.2 MB of png/jpeg down to 5.9 MB, lowest All-PSNR 39.1 dB
-(`assets/infravis-sead/seadbugs-screenshot.png.thumb.webp`), `dist/` is 33 MB on disk.
+Measured on this tree: 83 images, 26.7 MB of png/jpeg down to 6.3 MB, lowest All-PSNR 39.1 dB
+(`assets/infravis-sead/seadbugs-screenshot.png.thumb.webp`), `dist/` is 39 MB on disk.
 Everything smaller, and every SVG, is left alone.
 The encodes
 are generated, never committed: a stale `.webp` in git beside a hand-replaced png shows
@@ -64,13 +64,13 @@ wider than 252 CSS px: the "thumbnails" were the full screenshots, so the browse
 6 megapixels per tile and threw most of them away — 18x over-sampled. Tiles (`<img>` with
 class `screenshot-cover`, which is them and nothing else in this site) therefore also get
 `<name>.thumb.webp`, `cwebp -resize`d so the long edge is at most 768 px (>=3x the largest
-tile box, so it stays sharp on a 3x phone). 1.14 MB now, same grid: measured in Chromium
-against the live site, mean difference per colour channel 3.7/255 over the 34 tiles — most
+tile box, so it stays sharp on a 3x phone). 0.98 MB now, same grid: measured in Chromium
+against the live site, mean difference per colour channel 3.7/255 over the 35 tiles — most
 of which is the server's libwebp encoding the same files a little differently — and the
 build's own check confirms every tile still paints its cell. 
 The choice belongs to the `<img>`, not to the file: `assets/visp/screenshot2.png` is both a
 tile thumbnail and some page's full screenshot, so it gets both `.webp` and `.thumb.webp`
-and the two `<picture>` elements point at different ones — hence 78 files from 68 images. An
+and the two `<picture>` elements point at different ones — hence 83 files from 72 images. An
 image already under 768 px gets a single `.webp` serving both uses, and one under the 20 kB
 floor gets none: the markup would cost more than the bytes it saves.
 
@@ -351,12 +351,12 @@ since cap-drop=all leaves a root master unable to run nginx's `initgroups` at al
   `#5b6466` on `#f6f3ec` is 5.5:1 and white on `#0f5f68` is 7.2:1. The InfraVis chip is
   a solid light-plum border/text pair rather than white on a gradient.
 * The `.mp4` on /visp has no captions (`<track>`), relevant under the Accessibility Act.
-* 23 MB of images (down from 59 MB: `pngquant --quality=80-` + `jpegoptim --max=78`, applied
+* 27 MB of images (down from 59 MB: `pngquant --quality=80-` + `jpegoptim --max=78`, applied
   in place, nothing resized). Most of what is left is still larger than it is drawn: 87% of
   the bytes used to render at <= 480 CSS px and only 1.4 MB at > 800 px, so resizing to 2x
   display width would save several more MB — at the cost of images you cannot zoom into.
   The generated `.webp` copies (see Build) are what a current browser actually downloads;
-  the png/jpeg stay in `dist/` as the fallback, and 31 MB is the size of the tree, not of a
+  the png/jpeg stay in `dist/` as the fallback, and 39 MB is the size of the tree, not of a
   visit.
 * /visp's page logo is `assets/visp/visp_slogan_en.svg`; the tile on the front page still
   uses the old `assets/visp/VISP-logo-black.png`. Both are live, neither is dead — swapping
