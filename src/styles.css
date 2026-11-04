@@ -272,6 +272,7 @@ main { display: block; }
 .chip.infravis { border-color: #6b3a63; background: #f4e9f3; color: #5b2a5e; }
 .chip.sprakbanken { border-color: #283c74; background: #e9edf5; color: #283c74; }
 .chip.swedigarch { border-color: #6e3737; background: #f5e9e9; color: #6e3737; }
+.chip.huminfra { border-color: #0d7d5a; background: #e3f0eb; color: #0a5c43; }
 
 .explore-button {
   display: inline-flex;

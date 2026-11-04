@@ -165,7 +165,8 @@ clients) — check from somewhere else before deleting a link because of it.
 2. Link it from both front pages: `<a href="/<route>">` in `src/pages/index.html` is
    rewritten to a relative link for English; the same link in `src/pages/sv/index.html` is
    rewritten to `/sv/<route>` for Swedish. The checker fails if the route does not exist.
-   The grid is newest-first, so a new project's card goes at the top of it.
+   The grid runs ongoing cards first (newest start year first, a card labelled
+   `Ongoing`/`Pågående` last of those), then finished projects by newest start year.
 3. Put images in `src/assets/<route>/` with `width`/`height` attributes and `loading="lazy"`
    unless they are above the fold.
 4. Styles: `src/styles.css`, plain CSS with custom properties at the top — no
