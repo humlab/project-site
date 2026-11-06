@@ -363,9 +363,10 @@ since cap-drop=all leaves a root master unable to run nginx's `initgroups` at al
   uses the old `assets/visp/VISP-logo-black.png`. Both are live, neither is dead — swapping
   the tile is a decision nobody has made yet, and until someone does, deleting either file
   breaks a page.
-* Three "Explore application" buttons were removed because the apps behind them are gone:
-  /enida, /staden and /yrkesrum (all three now answer the nginx default page with an empty
-  body). /digibon was removed in the same sweep and put back: its 254-byte page is a shell
+* Two "Explore application" buttons were removed because the apps behind them are gone:
+  /enida and /yrkesrum (both answer the nginx default page with an empty body). /staden
+  was removed in the same sweep and put back: `staden.humlab.umu.se` answers 200 with the
+  installation's own page again (checked 2026-11-06). /digibon was removed in the same sweep and put back: its 254-byte page is a shell
   embedding an ArcGIS Experience, i.e. a working map app whose HTML is thin on purpose —
   the screenshot on our /digibon page is a clip of that same map. The project pages still
   describe the work and link their umu.se pages. If a service is brought back, add the
