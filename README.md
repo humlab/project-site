@@ -169,7 +169,13 @@ clients) — check from somewhere else before deleting a link because of it.
    `Ongoing`/`Pågående` last of those), then finished projects by newest start year.
 3. Put images in `src/assets/<route>/` with `width`/`height` attributes and `loading="lazy"`
    unless they are above the fold.
-4. Styles: `src/styles.css`, plain CSS with custom properties at the top — no
+4. Person names link to their umu.se profile: `https://www.umu.se/en/staff/<slug>/` on
+   English pages, `https://www.umu.se/personal/<slug>/` on Swedish ones - umu.se declares
+   `/personal/` as `hreflang="sv"` and `/en/staff/` as `hreflang="en"` *and* `x-default`,
+   both live for every slug the site links, no redirect between them. Link a name only
+   when that page is the same person: a department page, a news item or a guess is worse
+   than no link, so leave doubtful names as plain text and say so in the commit message.
+5. Styles: `src/styles.css`, plain CSS with custom properties at the top — no
    preprocessor, the old `.scss` files were flat enough not to need one.
 
 ## Deploy
