@@ -84,6 +84,10 @@ main { display: block; }
 .site-title { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.01em; }
 .site-title a { color: var(--ink); text-decoration: none; }
 .site-title a:hover { color: var(--accent); }
+/* On the front page this line *is* the title: the visible heading below it is .sr-only
+   now, and at 1.05rem the site name measured smaller than a tile title (16.8px vs 16.3px).
+   Only here - a project page has its own <h2> at 2.8rem and must keep the hierarchy. */
+.page-index .site-title, .page-sv-index .site-title { font-size: 1.35rem; }
 
 .lang-switch { display: flex; gap: 0.4rem; align-items: center; }
 .lang-switch a {
