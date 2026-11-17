@@ -132,6 +132,20 @@ node tools/smoke.mjs http://127.0.0.1:8099      # every page, two viewports, bot
 node tools/links.mjs                                      # needs network
 ```
 
+A full round of that takes about 30 s: the build encodes its ~127 webp files eight at a time
+(~8 s), smoke loads 96 documents at two viewports through eight browser pages (~7 s), links asks
+167 hosts what they say (~13 s), the two config checks together a tenth of a second. The two wide
+steps are wide, not clever: nothing is sampled, nothing is skipped as unchanged since the last
+build, nothing is trusted from a cache. Every encode runs and its PSNR is read; every document is
+rendered and measured. `SMOKE_WORKERS` and `SMOKE_SETTLE_MS` move those two dials.
+
+`tools/fault-check.sh` is the evidence that the speed cost nothing. It injects eight real
+breakages one at a time and puts the tree back afterwards: a 2014 card above a 2023 one, an image
+the build does not have, a broken image inside the served bytes, tiles forced to 40 px, tile
+images shrunk out of their cells, an inline script against `script-src 'none'`, a link to a domain
+nobody can reach, and a route missing its directory twin. Run it after changing anything in
+`build.mjs` or `tools/` — a gate that got fast and stopped biting is worse than a slow one.
+
 `tools/smoke.mjs` loads every built page in headless Chromium and reports console errors,
 failed requests, non-200 responses, CSP violations, and whether `/404.html` stays non-200.
 It exits non-zero and can gate a deploy. Each route is built in both flat and directory forms and
