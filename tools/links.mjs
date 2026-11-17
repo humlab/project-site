@@ -70,7 +70,12 @@ const check = async (href) => {
 };
 
 const urls = [...new Set(rows.map((r) => r.href))];
-for (let i = 0; i < urls.length; i += 8) await Promise.all(urls.slice(i, i + 8).map(check));
+// Sixteen at a time: one URL per round-trip made the check a queue. These are one request each
+// to different hosts, not one server asked 16 times at once - the probe in smoke.mjs stays at
+// four for exactly that reason, because that server forks per connection. A dead host still
+// costs its full timeout, but inside its own batch instead of holding up the other 160.
+const BATCH = 16;
+for (let i = 0; i < urls.length; i += BATCH) await Promise.all(urls.slice(i, i + BATCH).map(check));
 
 // A single failed request from one container is not a dead link (see README): retry the
 // failures serially before reporting them.
