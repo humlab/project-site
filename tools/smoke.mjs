@@ -12,7 +12,7 @@
 // canonical rewrites and the cache headers only exist there, so a plain server can only
 // prove the pages load.
 import { chromium } from 'playwright';
-import { readdirSync, existsSync, readFileSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const BASE = process.argv[2] || 'http://localhost:8080';
@@ -25,6 +25,12 @@ let bad = 0;
 // error page (excluded above) are flat by design. A half-pair means dist is not a build output:
 // a partial rsync, a hand-edited deploy, a build killed halfway. Load the half that exists and
 // report nothing about the other is exactly how a gate stops being worth running.
+// A build in flight empties dist/ before refilling it, and this used to read as either a Node
+// stack trace about scandir or, worse, a clean run over the half of it that survived.
+for (const dir of ['dist', 'dist/sv']) if (!existsSync(dir)) {
+  console.log(`FAIL  ${dir}/ is not there. Run \`node build.mjs\` first, and not while a build is running.`);
+  process.exit(1);
+}
 const entries = [];
 for (const dir of ['dist', 'dist/sv']) {
   const prefix = dir === 'dist' ? '' : 'sv/';
@@ -96,9 +102,15 @@ for (const f of entries) {
   console.log(`  FAIL  ${f} -> ${err || `${status} ${at}`}: neither the directory document's bytes `
     + `nor a 200 on the canonical /${route}. This run measured nothing at /${route}.`);
 }
+const treeStamp = () => {
+  const out = [];
+  const walk = (d) => { for (const e of readdirSync(d, { withFileTypes: true }))
+    e.isDirectory() ? walk(join(d, e.name)) : out.push(`${join(d, e.name)}:${statSync(join(d, e.name)).mtimeMs}`); };
+  walk('dist');
+  return out.sort().join('|');
+};
+const stampBefore = treeStamp();
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-const page = await ctx.newPage();
 // Two viewports: the responsive rules and most of the visitors are on phones.
 const VIEWPORTS = [['desktop', 1280, 900], ['mobile', 390, 844]];
 let allowed = 0;
@@ -107,12 +119,11 @@ let allowed = 0;
 // SEAD image sphere frame answered X-Frame-Options: deny, and the link is gone now, so a
 // new embed that will not render has to fail this gate, as it should.
 const ALLOWED = /ikt\.humlab\.umu\.se/;
-// The entry that was asked for, not the URL we ended up at: on a base with canonical
-// rewrites a directory entry lands on /<route>, where url().split('/').pop() is '' and all
-// 26 of them reported their failures under the name 'index'.
-let current = '(before the first load)';
-const page_ = () => current;
 
+// How long one document may take to settle before it is measured as it stands. Generous on
+// purpose: locally, every page in this build settles in a few hundred ms, so the cap is only
+// ever reached by a resource that is not answering at all.
+const SETTLE_MS = Number(process.env.SMOKE_SETTLE_MS || 2000);
 const IGNORE_CONSOLE = [/compute-pressure/,];   // the YouTube player probes it; Chrome denies it cross-origin by default
 
 // Console-clean is not the same as correct: the two bugs that reached a human this month
@@ -121,12 +132,25 @@ const IGNORE_CONSOLE = [/compute-pressure/,];   // the YouTube player probes it;
 // boxes too. Only images that are finished or laid out are judged - a loading="lazy" shot
 // below the fold has not been requested yet and must not read as broken, and awaiting its
 // decode would wait forever for exactly that reason.
-const geometry = () => page.evaluate(async () => {
+// The page and the cap have to be passed in: p.evaluate runs inside the page, where this
+// module's constants do not exist.
+const geometry = (p, settleMs) => p.evaluate(async (settle) => {
   const out = [], R = (e) => e.getBoundingClientRect();
-  // loading="lazy" shots below the fold have not been requested yet; without this scroll the
-  // coverage figure below would measure empty space on a perfectly fine page.
+  // A loading="lazy" image below the fold is not even requested until it comes near the
+  // viewport, so the page has to be scrolled and measured after the images arrive - without the
+  // scroll the coverage figure below would read empty space on a perfectly fine page. This used
+  // to be two flat sleeps: 200 ms after the load plus 450 ms here, i.e. 650 ms x 192 loads = two
+  // minutes of waiting for nothing in particular. Now every image and video is waited for by
+  // name (onload/onerror), which is both quicker and later than a guess about how long a
+  // resource needs. The cap is what a host that never answers costs, and a deadline cannot
+  // manufacture a false alarm: an image still loading has naturalWidth 0 and is skipped below,
+  // exactly as a lazy one always was.
   scrollTo(0, document.body.scrollHeight);
-  await new Promise(r => setTimeout(r, 450));
+  const settled = [...document.images].map((i) => i.complete ? 1
+    : new Promise((r) => { i.onload = r; i.onerror = r; }));
+  for (const v of document.querySelectorAll('video')) settled.push(v.readyState > 0 || v.error ? 1
+    : new Promise((r) => { v.onloadedmetadata = r; v.onerror = r; }));
+  await Promise.race([Promise.all(settled), new Promise((r) => setTimeout(r, settle))]);
   scrollTo(0, 0);
   await document.fonts.ready.catch(() => {});
   if (![...document.fonts].length || !document.fonts.check('400 16px Inter'))
@@ -165,46 +189,64 @@ const geometry = () => page.evaluate(async () => {
       out.push(`${f} drawn ${ren.toFixed(2)} vs natural ${nat.toFixed(2)}`);
   }
   return out;
-});
-page.on('console', (m) => {
-  if (m.type() !== 'error') return;
-  if (IGNORE_CONSOLE.some((re) => re.test(m.text()))) return;
-  bad++;
-  if (ALLOWED.test(m.text())) allowed++;
-  console.log(`CONSOLE ${page_()} ${m.text().slice(0, 160)}`);
-});
-page.on('requestfailed', (r) => {
-  // A <video preload="metadata"> that gets its moov box cancels the range request; the
-  // server supports ranges (nginx sends 206), Chromium reports the cancel as a failure.
-  if (r.failure()?.errorText === 'net::ERR_ABORTED' && r.resourceType() === 'media') return;
-  bad++;
-  if (ALLOWED.test(r.url())) allowed++;
-  console.log(`FAILED  ${page_()} ${r.url().slice(0, 110)} ${r.failure()?.errorText || ''}`);
-});
-page.on('response', (r) => {
-  // Same rule as the two handlers above: a host on ALLOWED may answer badly and must not
-  // fail a deploy. The hotlinked mp4 is precisely that - byte-range requests routinely
-  // return 403 or 416, and a video that plays perfectly would exit non-zero.
-  if (r.status() < 400) return;
-  if (ALLOWED.test(r.url())) { allowed++; return; }
-  bad++;
-  console.log(`HTTP ${r.status()} ${page_()} ${r.url().slice(0, 110)}`);
-});
+}, settleMs);
+const attach = (p, cur) => {
+  p.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    if (IGNORE_CONSOLE.some((re) => re.test(m.text()))) return;
+    bad++;
+    if (ALLOWED.test(m.text())) allowed++;
+    console.log(`CONSOLE ${cur()} ${m.text().slice(0, 160)}`);
+  });
+  p.on('requestfailed', (r) => {
+    // A <video preload="metadata"> that gets its moov box cancels the range request; the
+    // server supports ranges (nginx sends 206), Chromium reports the cancel as a failure.
+    if (r.failure()?.errorText === 'net::ERR_ABORTED' && r.resourceType() === 'media') return;
+    bad++;
+    if (ALLOWED.test(r.url())) allowed++;
+    console.log(`FAILED  ${cur()} ${r.url().slice(0, 110)} ${r.failure()?.errorText || ''}`);
+  });
+  p.on('response', (r) => {
+    // Same rule as the two handlers above: a host on ALLOWED may answer badly and must not
+    // fail a deploy. The hotlinked mp4 is precisely that - byte-range requests routinely
+    // return 403 or 416, and a video that plays perfectly would exit non-zero.
+    if (r.status() < 400) return;
+    if (ALLOWED.test(r.url())) { allowed++; return; }
+    bad++;
+    console.log(`HTTP ${r.status()} ${cur()} ${r.url().slice(0, 110)}`);
+  });
+};
 
-for (const [label, width, height] of VIEWPORTS) {
-  await page.setViewportSize({ width, height });
-  for (const file of pages) {
-    current = file;
+const jobs = [];
+for (const [label, width, height] of VIEWPORTS) for (const file of pages) jobs.push({ label, width, height, file });
+// The workers are pages of one browser, each with its own context, viewport and `current`,
+// pulling (document, viewport) jobs off a shared index. One at a time made this gate four times
+// slower than the build for no gain at all: no number measured here depends on any other, and
+// each is still read from a real render of a real document by a real browser.
+const WORKERS = Number(process.env.SMOKE_WORKERS || 8);
+let at = 0;
+const worker = async () => {
+  for (let i = at++; i < jobs.length; i = at++) {
+    const { label, width, height, file } = jobs[i];
+    const ctx = await browser.newContext({ viewport: { width, height } });
+    const p = await ctx.newPage();
+    // The entry that was asked for, not the URL we ended up at: on a base with canonical
+    // rewrites a directory entry lands on /<route>, where url().split('/').pop() is '' and all
+    // 26 of them would report their failures under the name 'index'.
+    let current = file;
+    attach(p, () => current);
     try {
-      await page.goto(`${BASE}/${file}`, { waitUntil: 'load' });
-      await page.waitForTimeout(200);   // let embeds and late requests report
-      for (const g of await geometry()) { bad++; console.log(`LAYOUT ${label} ${file} ${g}`); }
+      await p.goto(`${BASE}/${file}`, { waitUntil: 'load' });
+      for (const g of await geometry(p, SETTLE_MS)) { bad++; console.log(`LAYOUT ${label} ${file} ${g}`); }
     } catch (e) {
       bad++;
       console.log(`GOTO ${label}  ${file} ${e.message.split('\n')[0]}`);
     }
+    await ctx.close();
   }
-}
+};
+await Promise.all(Array.from({ length: Math.min(WORKERS, jobs.length) }, worker));
+
 // nginx canonicalises /404.html -> /404 -> 404; a plain static server has no such rule,
 // so only hold the server to it when it claims to be the production one.
 const four = await fetch(BASE + '/404.html', { signal: AbortSignal.timeout(PROBE_TIMEOUT) }).catch(() => null);
@@ -215,6 +257,10 @@ if (!four) { bad++; console.log('FAIL  /404.html: no answer (this probe waits 5s
 const isNginx = /nginx/.test(four?.headers.get('server') || '');
 console.log(`404.html direct request -> ${four ? four.status : 'no answer'}${isNginx ? ' (nginx: expected 404)' : ' (non-production server, canonical rules not applied)'}`);
 if (isNginx && four.status < 400) { bad++; console.log('  FAIL  the error page answers with a success status'); }
+// Nothing here writes to dist/, so a different stamp at the end means a build landed while this
+// one was loading: the numbers above then describe documents that no longer exist, which is the
+// one result a gate must never print as a pass.
+if (treeStamp() !== stampBefore) { bad++; console.log('FAIL  dist/ changed while this run was loading it - a build was in flight; this run measured a tree that is gone'); }
 console.log(`${pages.length} pages x ${VIEWPORTS.length} viewports against ${BASE}, ${bad} problem(s)` +
   ` (${allowed} of them the hotlinked /rave video host, which is not ours)` +
   (collapsed.length ? `\n  ${collapsed.length} directory URLs (${collapsed.join(' ')}) answered with the canonical\n`
