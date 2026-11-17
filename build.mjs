@@ -716,15 +716,16 @@ for (const [where, file] of [['/', 'index.html'], ['/sv/', 'sv/index.html']]) {
   });
   const rank = (c) => {
     const yrs = (c.year.match(/\d{4}/g) || []).map(Number);
-    // Open-ended ("2008–"), or a period still running this year. A project that ends in
-    // December is still ongoing in June, so >= and not >: when the year turns, the cards it
-    // just retired will move and this check will say so until someone reorders them.
-    // "Ongoing" / "Pågående" on a tile is the honest label for a project still running with
-    // no start year on record. It ranks inside the ongoing block, after every dated one, so
-    // the rule stays "ongoing first, then newest start year" without inventing a year here.
+    // Ongoing means the period has no end: "2008–", or "Ongoing" / "Pågående" for a project
+    // still running with no start year on record (it ranks after every dated one, so the rule
+    // stays "ongoing first, then newest start year" without inventing a year). An end year is
+    // taken at its word - "2025-2026" has ended, even while 2026 is running - because the tile
+    // is the only record of this, and guessing that a project finishes in December of the year
+    // it names put finished projects at the top of the grid.
+    // A single year is closed too: "2026" says when the work happened, not that it continues.
     const ongoing = /\b(ongoing|pågående)\b/i.test(c.year)
       || c.year.endsWith('\u2013')
-      || (yrs.length > 0 && Math.max(...yrs) >= THIS_YEAR);
+      || Math.max(...yrs, 0) > THIS_YEAR;
     return [ongoing ? 0 : 1, -(yrs[0] ?? -1)];
   };
   const dated = cards.filter((c) => c.year);

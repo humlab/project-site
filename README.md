@@ -167,6 +167,10 @@ clients) — check from somewhere else before deleting a link because of it.
    rewritten to `/sv/<route>` for Swedish. The checker fails if the route does not exist.
    The grid runs ongoing cards first (newest start year first, a card labelled
    `Ongoing`/`Pågående` last of those), then finished projects by newest start year.
+   Ongoing means the period has no end year: `2008–`, or `Ongoing`/`Pågående` when the start
+   year is not on record. An end year is taken at its word, so `2025–2026` and `2026` both
+   sort with the finished projects even while 2026 runs; work that goes on is written with the
+   dash (`2026–`), because the tile is the only record of this.
 3. Put images in `src/assets/<route>/` with `width`/`height` attributes and `loading="lazy"`
    unless they are above the fold.
 4. Person names link to their umu.se profile: `https://www.umu.se/en/staff/<slug>/` on
