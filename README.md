@@ -368,10 +368,11 @@ since cap-drop=all leaves a root master unable to run nginx's `initgroups` at al
   The generated `.webp` copies (see Build) are what a current browser actually downloads;
   the png/jpeg stay in `dist/` as the fallback, and 39 MB is the size of the tree, not of a
   visit.
-* /visp's page logo is `assets/visp/visp_slogan_en.svg`; the tile on the front page still
-  uses the old `assets/visp/VISP-logo-black.png`. Both are live, neither is dead — swapping
-  the tile is a decision nobody has made yet, and until someone does, deleting either file
-  breaks a page.
+* The name is written **Visp**, not VISP, and the tool is **Tratt** — the platform's own
+  lockup has read "Visp" since Språkbanken redid it, and the all-caps
+  `assets/visp/VISP-logo-black.png` this README used to point at belongs to the old site and
+  is not in this tree at all. The name in the page's `<h2>` is what the build turns into
+  `<title>` and `og:title`, so the heading carries the spelling for the whole page.
 * Two "Explore application" buttons were removed because the apps behind them are gone:
   /enida and /yrkesrum (both answer the nginx default page with an empty body). /staden
   was removed in the same sweep and put back: `staden.humlab.umu.se` answers 200 with the
