@@ -175,6 +175,9 @@ clients) — check from somewhere else before deleting a link because of it.
    both live for every slug the site links, no redirect between them. Link a name only
    when that page is the same person: a department page, a news item or a guess is worse
    than no link, so leave doubtful names as plain text and say so in the commit message.
+   A person who has changed name still gets the link, under the name the profile carries
+   today: `/visp` lists Fredrik Nylén, who was Fredrik Karlsson in the project material
+   and still is in the older entries of his own publication list.
 5. Styles: `src/styles.css`, plain CSS with custom properties at the top — no
    preprocessor, the old `.scss` files were flat enough not to need one.
 
