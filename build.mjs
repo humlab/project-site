@@ -6,7 +6,7 @@
 // runs after the checks and before the pages are written, so if cwebp dies halfway you get
 // an assets-only dist/ and a non-zero exit. Nothing is published on an exit code of 1.
 import { readFileSync as read, writeFileSync as write, mkdirSync, rmSync, cpSync, readdirSync, statSync, existsSync, openSync, readSync, closeSync } from 'node:fs';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 
 const SRC = 'src', OUT = 'dist';
@@ -756,24 +756,35 @@ cpSync(join(SRC, 'styles.css'), join(OUT, 'styles.css'));
 cpSync(join(SRC, 'favicon.ico'), join(OUT, 'favicon.ico'));
 cpSync(join(SRC, 'assets'), join(OUT, 'assets'), { recursive: true, filter: (from) => !basename(from).startsWith('.') });
 let webpFailed = 0, webpFrom = 0, webpTo = 0, worst = [999, ''];
-for (const j of jobs) {
+// One cwebp after another was the slowest thing in the build (~30 s for ~127 files). Each is a
+// separate process over one file with nothing shared, so eight of them go at nearly eight times
+// the rate; they are the only parallel thing here on purpose, because every encode is still run
+// and every PSNR is still read: nothing is sampled, skipped because "the file looks unchanged",
+// or trusted from a previous build.
+const runCwebp = (args) => new Promise((res) => execFile('cwebp', args, { encoding: 'utf8' },
+  (err, stdout, stderr) => res({ status: err ? Number(err.code ?? 1) : 0, stdout, stderr })));
+const encode = async (j) => {
   const from = j.from, out = j.to, to = join(OUT, out);
   mkdirSync(dirname(to), { recursive: true });
   // cwebp writes its whole per-file report (including the PSNR we want) to stderr, and it is
   // 15 lines per image, so both streams go into a pipe here rather than onto the terminal.
-  const r = spawnSync('cwebp', [...j.args, from, '-o', to], { encoding: 'utf8' });   // j.args: a thumb adds -resize
+  const r = await runCwebp([...j.args, from, '-o', to]);   // j.args: a thumb adds -resize
   const m = `${r.stdout}${r.stderr}`.match(
     /Output:\s+(\d+) bytes\s+Y-U-V-All-PSNR\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+([\d.]+)/);
   if (r.status !== 0 || !existsSync(to)) {
     webpFailed++;
     console.log(`  FAIL  cwebp could not encode ${out}: ${(r.stderr || `exit ${r.status}`).trim().split('\n').pop()}`);
     rmSync(to, { force: true });           // a truncated file would be picked over the png
-    continue;
+    return;
   }
   if (!counted.has(from)) { counted.add(from); webpFrom += statSync(from).size; }   // shared source = 2 jobs, 1 set of bytes
   webpTo += m ? Number(m[1]) : statSync(to).size;
   if (m && Number(m[2]) < worst[0]) worst = [Number(m[2]), out];
-}
+};
+// Workers pull the next index before awaiting, so two of them can never take the same job.
+let jobAt = 0;
+await Promise.all(Array.from({ length: Math.max(1, Math.min(8, jobs.length)) },
+  async () => { for (let i = jobAt++; i < jobs.length; i = jobAt++) await encode(jobs[i]); }));
 if (webpFailed) { console.log(`\n${webpFailed} webp encode failure(s); dist/ is incomplete.`); process.exit(1); }
 if (jobs.length)
   console.log(`  webp  ${jobs.length} images${thumbCount ? `, ${thumbCount} of them resized to <=${THUMB_EDGE}px for the tiles` : ''}: `
