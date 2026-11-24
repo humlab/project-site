@@ -6,7 +6,8 @@
 #   podman build -f deploy/Containerfile.nginx --build-arg LISTEN=tcp -t showcase_nginx_tcp .   (eval over -p)
 #
 # Edits made while making the first draft build (measured, not guessed):
-#   - no pcre2-static: Alpine has no such package; libpcre2-*.a ship inside pcre2-dev.
+#   - no pcre2-static: Alpine has no such package. pcre2-dev carried the .a files until
+#     3.24 dropped them, which is why pcre2 is now compiled in from source (--with-pcre).
 #   - gzip module stays IN (the draft cut it): nginx.conf carries `gzip` directives, so
 #     a binary without the module cannot even parse the config it is meant to serve. The
 #     module is ~100 kB and buys the origin its own CSS/SVG compression.
@@ -28,7 +29,7 @@
 # (plus chmod 1777 on the sockets dir, which both uids must write).
 
 # ---------- build stage: identical to deploy/Containerfile ----------
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 RUN apt-get update \
  && apt-get install -y --no-install-recommends webp \
  && rm -rf /var/lib/apt/lists/*
@@ -38,11 +39,26 @@ COPY src ./src
 RUN node build.mjs
 
 # ---------- nginx: one static binary, no libc to carry into the runtime ----------
-FROM alpine:3.20 AS nginx
-RUN apk add --no-cache build-base linux-headers pcre2-dev zlib-dev zlib-static
-ARG NGINX=1.28.0
+# Why 1.30.8 and not a patch bump on the old line (checked 2026-11-24 against nginx.org):
+# three 2026 heap overflows were fixed on 1.30.2 (overlapping captures in the rewrite module,
+# CVE-2026-9256), 1.30.4 (map with regex matching feeding a string expression) and 1.30.7
+# (try_files, CVE-2026-125283) - and never on 1.28 at all, whose only security releases since
+# 1.28.0 concern mp4, mail and stream, none of which this binary is built with. This config uses
+# all three of those directives (the canonical rewrites capture, $cacheable is a regex map
+# consumed inside another map's key, and every location ends in try_files), so 1.28.3 - newest on
+# that line, and now "legacy" upstream - would still be running the unpatched code. 1.30.8 parses
+# both config snippets, serves the built tree, and passes the whole gate identically to the 1.26
+# dev server: redirects, the /404 chain, the dotfile deny, and byte-for-byte the same headers.
+# alpine 3.20 lost support on 2026-04-01 and 3.21 on 2026-11-01; 3.24 is supported to 2028-06.
+FROM alpine:3.24 AS nginx
+RUN apk add --no-cache build-base linux-headers zlib-dev zlib-static
+ARG NGINX=1.30.8
+# alpine 3.24 dropped the static .a from pcre2-dev, so with -ld-opt=-static nginx's configure
+# can no longer find pcre2 in the system; build it in from source instead, as a static lib.
+ARG PCRE2=10.49
 RUN mkdir -p /usr/src \
  && wget -qO- https://nginx.org/download/nginx-$NGINX.tar.gz | tar xz -C /usr/src \
+ && wget -qO- https://github.com/PCRE2Project/pcre2/releases/download/pcre2-$PCRE2/pcre2-$PCRE2.tar.gz | tar xz -C /usr/src \
  && cd /usr/src/nginx-$NGINX \
  && ./configure --prefix=/usr/local/nginx --sbin-path=/nginx --conf-path=/etc/nginx/nginx.conf \
       --pid-path=/run/nginx.pid --lock-path=/run/lock/nginx.lock \
@@ -50,7 +66,8 @@ RUN mkdir -p /usr/src \
       --http-client-body-temp-path=/tmp/nginx-body --http-proxy-temp-path=/tmp/nginx-proxy \
       --http-fastcgi-temp-path=/tmp/nginx-fastcgi \
       --without-http_ssi_module --without-http_autoindex_module \
-      --without-http_scgi_module --without-http_uwsgi_module --with-ld-opt=-static \
+      --without-http_scgi_module --without-http_uwsgi_module \
+      --with-pcre=/usr/src/pcre2-$PCRE2 --with-ld-opt=-static \
  && make -j"$(nproc)" && make install \
  && cp conf/mime.types /mime.types
 
@@ -67,7 +84,7 @@ RUN mkdir -p /usr/src \
 # a differently-uided socat can still connect to it.
 # worker_connections 200: the hardened run caps nofile at 256, and 512 connections over
 # 256 fds logs a warning on every start (measured) — a static origin does not need 512.
-FROM alpine:3.20 AS config
+FROM alpine:3.24 AS config
 WORKDIR /etc/nginx
 ARG LISTEN=socket
 COPY nginx.conf conf.d/default.conf

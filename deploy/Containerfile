@@ -8,8 +8,9 @@
 # and the same tree always produces the same image regardless of what a host happened to
 # build last.
 #
-# What this server can and cannot do, measured with the same binary (busybox 1.37.0,
-# pulled from the image this file is based on) against the built dist/:
+# What this server can and cannot do, measured against the built dist/ with the previous
+# base's binary (busybox 1.37.0). The 1.38-musl base carries the same applets (httpd and
+# inetd re-checked) but the table below has not been re-measured on it:
 #   CAN  serve /sead -> 302 -> /sead/ -> the page: possible because build.mjs writes
 #        <route>/index.html with root-absolute refs next to the flat <route>.html.
 #        Without those, "minimum container" meant 404 on every canonical URL.
@@ -34,7 +35,7 @@
 # See README.
 
 # ---------- build stage: runs the repo's own build.mjs, with cwebp for webp ----------
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 RUN apt-get update \
  && apt-get install -y --no-install-recommends webp \
  && rm -rf /var/lib/apt/lists/*
@@ -44,7 +45,7 @@ COPY src ./src
 RUN node build.mjs
 
 # ---------- runtime: busybox (static musl build) + the built site, nothing else ----------
-FROM busybox:1.37-musl AS bin
+FROM busybox:1.38-musl AS bin
 
 FROM scratch
 
